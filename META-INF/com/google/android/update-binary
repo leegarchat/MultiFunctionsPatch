@@ -11,7 +11,7 @@ set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-ALPHA-4.1.1"
+MFPAPP="MFP-ALPHA-4.1.2"
 
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
@@ -126,7 +126,7 @@ RUN_READ_ARG(){
 	}
 
 RUN_ARG_CHECK(){ 
-	if ! $flashrom && ! $flashrec && ! $flashdfe && ! $flashrw ; then 
+	if ! $flashrom && ! $flashrec && ! $flashdfe && ! $flashrw && ! $flashADDzip ; then 
 		ui_print "-  No arguments"
 		ui_print "- Copy .zip name in arguments.txt into .zip files or creat near .zip arguments.txt"
 		exit 49
@@ -163,6 +163,7 @@ RUN_MOUNT_SUPER(){ bakblock="/dev/block/backup/"
 
 	case $1 in
 		--mount)
+    if ! $extsuper ; then
 	umount /system_root ; umount /vendor ; umount /product ; umount /system_ext ; umount /odm
 	block_system=$( grep "/system_root" /etc/fstab | awk '{ print $1 }' )
 	block_system_ext=$( grep "/system_ext" /etc/fstab | awk '{ print $1 }' )
@@ -203,8 +204,10 @@ RUN_MOUNT_SUPER(){ bakblock="/dev/block/backup/"
 		done
 	done
 	extsuper=true
+    fi
 			;;
 			--umount ) 
+			if $extsuper ; then 
 			if [[ -z $block_system ]] ; then 
 				ui_print " Something wrong: error 221"
 				exit 221
@@ -226,6 +229,7 @@ RUN_MOUNT_SUPER(){ bakblock="/dev/block/backup/"
 				dd if=$bakblock$( basename ${fwimg%LOLLOLLOLFACK*} ) of="${fwimg%LOLLOLLOLFACK*}"
 			done
 			extsuper=false
+            fi
 			;;	 
 	esac
 	}
@@ -434,7 +438,7 @@ RUN_CHECK_ROM(){
 			ui_print "-  Need 24gb free space"
 			exit 101
 		fi
-		if [[ -f $romzip ]] ; then
+		if [[ -f $romzip ]] && $flashrom ; then
 		    ui_print "-  $romzip find"
 		    if $( 7za l "$romzip" | grep -q payload.bin ) ; then 
 		        ui_print "-  Detected payload.bin"
@@ -871,9 +875,14 @@ fi
 LPDUMP="$home/lpdump.txt"
 lpdump --slot=$newslot >> $LPDUMP
 
-if $flashrom ; then
-	RUN_CHECK_ROM
-	RUN_SINGL_STRUCTURES $?
+if $flashrom || $flashADDzip ; then
+    if $flashrom ; then
+	    RUN_CHECK_ROM
+	    RUN_SINGL_STRUCTURES $?
+	elif ! $flashrom && $flashADDzip ; then
+        RUN_DUMP_PART
+	fi
+    
 	if $flashADDzip || $flashdfe || $flashrw ; then 
 		RUN_ALL_RW
 	fi
