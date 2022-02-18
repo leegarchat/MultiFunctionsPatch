@@ -5,14 +5,21 @@ export OUTFD=$2
 
 arg1=$1 ; arg2=$2 ; arg3=$3
 
+
+
 ui_print(){ echo -e "ui_print $1\nui_print" >> "/proc/self/fd/$arg2" ; }
 progress(){ echo -e "progress $1 $2" >> "/proc/self/fd/$arg2" ; }
 set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-BETA-4.1.9"
-
+MFPAPP="MFP-BETA-4.1.9b"
+if ( echo "$( dirname "$arg3" )" | grep ' ' ) || ( echo "$arg3" | grep ' ' ) ; then
+	ui_print "-  Please remove spaces from the path name"
+	ui_print "-  Bad path /sdcard/folder name/mfp.zip"
+	ui_print "-  Good path /sdcard/foldername/folder-name/mfp.zip"
+	exit 201
+fi
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
 ( mountpoint -q /data ) || mount /data
