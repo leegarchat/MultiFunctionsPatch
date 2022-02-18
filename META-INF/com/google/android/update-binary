@@ -10,7 +10,7 @@ ui_print() { echo -e "ui_print $1\nui_print" >> "/proc/self/fd/$arg2"; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-ALPHA-4.0.6"
+MFPAPP="MFP-ALPHA-4.0.7"
 
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
@@ -54,6 +54,11 @@ RUN_ARG_EXAMPLE(){
 	ui_print "  Name kernel kernel_name.zip"
 	}
 RUN_READ_ARG(){ 
+
+	while ( grep "/storage/emulated/0/" $arguments ) ; do
+		sed -i 's|/storage/emulated/0/|/sdcard/|g' $arguments
+	done
+
 
 	( grep "MAKERW" "$arguments" | grep -i "yes" ) && flashrw=true || flashrw=false
 
@@ -391,7 +396,7 @@ RUN_ALL_RW(){
 
 	ui_print "  -  Give RW for all partition"
     for img_rw in vendor system_ext product system ; do
-        RUN_RW "$home/imgs/$img_rw$newslot.img"
+    	[[ -f $home/imgs/$img_rw$newslot.img ]] && RUN_RW "$home/imgs/$img_rw$newslot.img"
     done
     Ss=$( grep -F -m 1 "Size:" $LPDUMP | awk '{print $2}' )
     vs=$( stat -c%s $home/imgs/vendor$newslot.img )
