@@ -10,78 +10,95 @@ ui_print() { echo -e "ui_print $1\nui_print" >> "/proc/self/fd/$arg2"; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-ALPHA-4.0.2"
+MFPAPP="MFP-ALPHA-4.0.4"
 
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
 slot_num=$(bootctl get-current-slot) ; slot_ab=$(bootctl get-suffix $slot_num)
 
+RUN_ARG_CHECK(){
+	case $zipname in 
+		*MAKERW*) flashrw=true ;; 
+			   *) flashrw=false ;; 
+	esac
+	case $zipname in 
+		*DFE*) flashdfe=true ;; 
+		    *) flashdfe=false ;; 
+	esac
+	case $zipname in 
+		*FROM*EROM*) flashrom=true 
+					name_rom=${zipname#*FROM-} ; name_rom=${name_rom#*FROM}
+					name_rom=${name_rom%-EROM*} ; name_rom=${name_rom%EROM*}
+					;; 
+				   *) flashrom=false ;;
+	esac
+	case $zipname in 
+		*INSLOT-A*) $flashrom && newslot="_a" || newslot="$slot_ab" ;; 
+		*INSLOT-B*) $flashrom && newslot="_b" || newslot="$slot_ab" ;; 
+		         *) newslot="$slot_ab" ;; 
+	esac
+	case $zipname in 
+		*REFLASHREC*) $flashrom && reflashrec=true || reflashrec=false ;; 
+				   *) reflashrec=false ;; 
+	esac
+	case $zipname in 
+		*FREC*EREC*) flashrec=true  
+					name_rec=${zipname#*FREC-} ; name_rec=${name_rec#*FREC}
+					name_rec=${name_rec%-EREC*} ; name_rec=${name_rec%EREC*}
+					reflashrec=false
+					;;
+		   		   *) flashrec=false ;; 
+	esac
+	case $zipname in 
+		*FKER*EKER*) flashker=true  
+					name_ker=${zipname#*FKER-} ; name_ker=${name_ker#*FKER}
+					name_ker=${name_ker%-EKER*} ; name_ker=${name_ker%EKER*}
+					;;
+		   		   *) flashker=false ;; 
+	esac
+	case $zipname in 
+		*FMAGISK*EMAGISK*) flashmagisk=true 
+							name_magisk=${zipname#*FMAGISK-} ; name_magisk=${name_magisk#*FMAGISK}
+							name_magisk=${name_magisk%-EMAGISK*} ; name_magisk=${name_magisk%EMAGISK*}
+							;; 
+						 *) flashmagisk=false ;; 
+	esac
+	}
 
-case $zipname in 
-	*MAKERW*) flashrw=true ;; 
-		   *) flashrw=false ;; 
-esac
-case $zipname in 
-	*DFE*) flashdfe=true ;; 
-	    *) flashdfe=false ;; 
-esac
-case $zipname in 
-	*FROM*EROM*) flashrom=true 
-				name_rom=${zipname#*FROM-} ; name_rom=${name_rom#*FROM}
-				name_rom=${name_rom%-EROM*} ; name_rom=${name_rom%EROM*}
-				;; 
-			   *) flashrom=false ;;
-esac
-case $zipname in 
-	*INSLOT-A*) $flashrom && newslot="_a" || newslot="$slot_ab" ;; 
-	*INSLOT-B*) $flashrom && newslot="_b" || newslot="$slot_ab" ;; 
-	         *) newslot="$slot_ab" ;; 
-esac
-case $zipname in 
-	*REFLASHREC*) $flashrom && reflashrec=true || reflashrec=false ;; 
-			   *) reflashrec=false ;; 
-esac
-case $zipname in 
-	*FREC*EREC*) flashrec=true  
-				name_rec=${zipname#*FREC-} ; name_rec=${name_rec#*FREC}
-				name_rec=${name_rec%-EREC*} ; name_rec=${name_rec%EREC*}
-				reflashrec=false
-				;;
-	   		   *) flashrec=false ;; 
-esac
-case $zipname in 
-	*FKER*EKER*) flashker=true  
-				name_ker=${zipname#*FKER-} ; name_ker=${name_ker#*FKER}
-				name_ker=${name_ker%-EKER*} ; name_ker=${name_ker%EKER*}
-				;;
-	   		   *) flashker=false ;; 
-esac
-case $zipname in 
-	*FMAGISK*EMAGISK*) flashmagisk=true 
-						name_magisk=${zipname#*FMAGISK-} ; name_magisk=${name_magisk#*FMAGISK}
-						name_magisk=${name_magisk%-EMAGISK*} ; name_magisk=${name_magisk%EMAGISK*}
-						;; 
-					 *) flashmagisk=false ;; 
-esac
-
-ui_print " "
-ui_print "  ------******!!!!!!!!!!!!!!!!!!!!******-------"
-ui_print " "
-ui_print "  -  $MFPAPP"
-ui_print "  -  by @LeeGarChat"
-ui_print "  -  Telegram group @PocoF3DFE"
-ui_print "  -  Thanks for @ErenMetesarr"
-ui_print " "
-ui_print "  ------******!!!!!!!!!!!!!!!!!!!!******-------"
-ui_print " "
-ui_print "  -  MAKERW: $flashrw"
-ui_print "  -  DFE: $flashdfe"
-ui_print "  -  MAGISK: $flashmagisk"
-ui_print "  -  REFLASH RECOVERY: $reflashrec"
-ui_print "  -  FLASH RECOVERY: $flashrec"
-ui_print "  -  INSLOT-A/B: $newslot"
-ui_print "  -  FLASH ROM: $flashrom"
-ui_print "  -  FLASH KERNEL: $flashker"
+RUN_LOGO(){
+	ui_print " "
+	ui_print "  ------******!!!!!!!!!!!!!!!!!!!!******-------"
+	ui_print " "
+	ui_print "  -  $MFPAPP"
+	ui_print "  -  by @LeeGarChat"
+	ui_print "  -  Telegram group @PocoF3DFE"
+	ui_print "  -  Thanks for @ErenMetesarr"
+	ui_print " "
+	ui_print "  ------******!!!!!!!!!!!!!!!!!!!!******-------"
+	ui_print " "
+	ui_print "  -  MAKERW: $flashrw"
+	ui_print "  -  DFE: $flashdfe"
+	ui_print "  -  MAGISK: $flashmagisk"
+	ui_print "  -  REFLASH RECOVERY: $reflashrec"
+	ui_print "  -  FLASH RECOVERY: $flashrec"
+	ui_print "  -  INSLOT-A/B: $newslot"
+	ui_print "  -  FLASH ROM: $flashrom"
+	ui_print "  -  FLASH KERNEL: $flashker"
+	}
+RUN_ARG_CHECK
+RUN_LOGO
+if ! $flashrom && ! $flashrec && ! $flashker && ! $reflashrec && ! $flashdfe && ! $flashrw ; then 
+	unzip -o "$3" "arguments.txt" -d /tmp
+	zipname=$(cat /tmp/arguments.txt)
+	RUN_ARG_CHECK
+	RUN_LOGO
+	if ! $flashrom && ! $flashrec && ! $flashker && ! $reflashrec && ! $flashdfe && ! $flashrw ; then 
+		ui_print "  -  No arguments"
+		ui_print "  - Copy .zip name in arguments.txt into .zip files"
+		exit 0 
+	fi
+	
+fi
 
 
 if ( mountpoint -q /data/ ) ; then
@@ -538,9 +555,21 @@ RUN_CHECK_ROM(){
         elif $( 7za l "$romzip" | grep -q system.img ) && $( 7za l "$romzip" | grep -q vendor.img ); then
             ui_print "  -  Detected fastboot rom"
             return 52
-        elif $( 7za l "$romzip" | grep -q system.new.dat ) || $( 7za l "$romzip" | grep -q system.new.dat.br ); then
-            ui_print "  -  Detected miui style rom"
-            return 54
+        elif $( 7za l "$romzip" | grep -q ".new.dat" ) ; then 
+        	mkdir -pv $home/newdatsuper
+        	ui_print "  -  Detected miui style"
+        	7za e "$romzip" -o$home/newdatsuper/ "updater-script" -y -r -mmt8
+        	if ( grep "/super" $home/newdatsuper/updater-script | grep block_image_update ) ; then
+        		ui_print "  -  Detected miui style rom with super"
+        		r=$( grep "/super" $home/newdatsuper/updater-script | grep block_image_update )
+        		r=${r#*package_extract_file} ; r${r%||*}
+        		r=$( echo $r | awk '{ print $2 }' )
+        		r=${r#*\"} ; r=${r%\"*}
+        		return 56
+        	elif $( 7za l "$romzip" | grep -q system.new.dat ) || $( 7za l "$romzip" | grep -q system.new.dat.br ); then
+	            ui_print "  -  Detected miui style rom with part"
+	            return 54 
+	        fi
         fi
     else 
         ui_print "  -  $romzip not find"
@@ -573,13 +602,53 @@ RUN_SINGL_STRUCTURES(){
 	        mv $imgs $home/imgs/
 	    done
 	    rm -f $home/newdat/*
-
+	elif [[ $1 == "56" ]] ; then 
+		7za e "$romzip" -o$home/newdatsuper/ "*.new.dat*" -y -r -mmt8
+		7za e "$romzip" -o$home/newdatsuper/ "*.transfer.list" -y -r -mmt8
+		7za e "$romzip" -o$home/newdatsuper/ "*.img" -y -r -mmt8
+		for fwimgs in $( find $home/newdatsuper/*.img ) ; do
+	        mv $fwimgs $home/fw/
+	    done
+	    for imgs in $( find $home/newdatsuper/*new.dat.br ) ; do
+	    	ui_print "  -  Convert $( basename $imgs )"
+	        brotli -df $imgs -o ${imgs%.br*} && rm -f $imgs
+	    done
+	    for imgs in $( find $home/newdatsuper/*new.dat ) ; do
+	    	ui_print "  -  Convert $( basename $imgs )"
+	        sdat2img ${imgs%.new.dat*}.transfer.list $imgs ${imgs%.new.dat*}$newslot.img
+	    done
+	    mv $home/newdatsuper/${r%.new.dat*}$newslot.img $home/newdatsuper/super.img
+	    for cust in $( find $home/newdatsuper/cust*.img); do
+	    	mv $cust $home/fw/cust.img
+	    done
+	    if find $home/newdatsuper/super.img ; then
+	    	if ( file $home/newdatsuper/super.img | grep -q sparse ) ; then 
+			    simg2img $home/newdatsuper/super.img $home/newdatsuper/super.row.img
+			    rm $home/newdatsuper/super.img
+			    mv $home/newdatsuper/super.row.img $home/newdatsuper/super.img
+		    fi
+		    lpunpack $home/newdatsuper/super.img $home/newdatsuper/
+		    for imgs in system_ext_a system_a vendor_a product_a odm_a ; do
+		        for imgsp in $( find $home/newdatsuper/$imgs.img ) ; do 
+			        if [[ $( stat -c%s $imgsp ) -ge 50 ]] ; then
+			            mv $imgsp $home/imgs/${imgs%_*}$newslot.img
+			        else
+			            rm -f $imgsp
+			        fi
+		        done
+		    done
+		    rm $home/newdatsuper/super.img
+		else
+			ui_print "  -  Something wrong: error 62"
+			exit 0 
+		fi
+	    rm -f $home/newdatsuper/*
 	elif [[ $1 == "53" ]] ; then
 		7za e "$romzip" -o$home/super/ "*.img" -y -r -mmt8
 	    if ( file $home/super/super.img | grep -q sparse ) ; then 
-	    simg2img $home/super/super.img $home/super/super.row.img
-	    rm $home/super/super.img
-	    mv $home/super/super.row.img $home/super/super.img
+		    simg2img $home/super/super.img $home/super/super.row.img
+		    rm $home/super/super.img
+		    mv $home/super/super.row.img $home/super/super.img
 	    fi
 	    lpunpack $home/super/super.img $home/super/
 	    for imgs in system_ext_a system_a vendor_a product_a odm_a ; do
@@ -605,7 +674,6 @@ RUN_SINGL_STRUCTURES(){
 	        mv $fwimgs $home/fw/
 	    done
 	    rm -f $home/fw/super*.img
-	    
 	elif [[ $1 == "51" ]] ; then 
 		pydump -c 8 -o $home/payload/ "$romzip"
 	    for bootimgs in vendor_boot boot ; do  
@@ -639,8 +707,6 @@ RUN_SINGL_STRUCTURES(){
 	        mv $fwimgs $home/fw/
 	    done
 	fi
-	
-
 	}
 RUN_MAKE_SUPER(){
 	ui_print "  -  Make new super partition"
@@ -748,6 +814,7 @@ RUN_DUMP_PART(){
 	done
 	}
 RUN_DFE_RW_IN_SUPER(){
+
 		if $flashrw ; then
 			RUN_ALL_RW
 		fi
@@ -861,6 +928,27 @@ RUN_FLASH_KERNEL(){
 		ui_print "  -  $name_ker not finded"
 	fi
 	}
+RUN_POST_PATCH(){
+	if $flashrec ; then 
+		if $sm8250 ; then 
+			ui_print "  -  Patching flash recvoery for SM8250"
+			RUN_RECOVERY_FLASH_SM8250 $newslot
+		else 
+			ui_print "  -  Patching flash recvoery"
+			RUN_RECOVERY_FLASH $newslot
+		fi
+	fi
+
+	if $flashmagisk ; then
+		ui_print "  -  Patching boot with magisk"
+		RUN_MAGISK
+	else
+		ui_print "  -  Patching boot"
+		RUN_BOOT_PATCH $newslot
+	fi
+	ui_print "  -  Patching vendor_boot"
+	RUN_VENDORBOOT_PATCH $newslot
+	}
 RUN_SIMG2IMG(){
 
 	for img in $( find $home/imgs/*.img $home/fw/*.img ); do
@@ -917,86 +1005,66 @@ if $flashrom ; then
 elif ! $flashrom ; then
 
 	umount /vendor
-mount /vendor
-mount -o rw,remount /vendor 
-	RUN_CHECK_RW "/vendor/etc"
-	if [[ $retpop == 40 ]] ; then
-		ui_print "  -  ss12"
-		RUN_DFE "/vendor"
-	elif [[ $retpop == 41 ]] ; then
-		ui_print "  -  ss13"
-		RUN_RW_LITE "vendor$newslot"
-		umount /vendor
-mount /vendor
-mount -o rw,remount /vendor 
+	mount /vendor
+	mount -o rw,remount /vendor 
+	if $flashrw ; then 
+		RUN_DUMP_PART
+		RUN_DFE_RW_IN_SUPER
+		if [[ $retpop == 40 ]] ; then
+			RUN_POST_PATCH
+			ui_print "  -  Flashing new super partition. For OTG process very long 40-50 minutes. Please wait..."
+			simg2img $home/newsuper.img /dev/block/by-name/super
+			RUN_FINAL
+		elif [[ $retpop == 41 ]] ; then
+			ui_print "  -  Something went wrong. Send recovery.log to developer on TG @LeeGarChat"
+			exit 0
+		fi
+	elif ! $flashrw ; then 
 		RUN_CHECK_RW "/vendor/etc"
-		if [[ $retpop == 40 ]] ; then 
-			ui_print "  -  ss14"
+		if [[ $retpop == 40 ]] ; then
+			ui_print "  -  ss12"
 			RUN_DFE "/vendor"
 		elif [[ $retpop == 41 ]] ; then
-			RUN_DUMP_PART
-			RUN_DFE_RW_IN_SUPER
-			if [[ $retpop == 40 ]] ; then
-				if $flashrec ; then 
-					if $sm8250 ; then 
-						ui_print "  -  Patching flash recovery for SM8250"
-						RUN_RECOVERY_FLASH_SM8250 $newslot
-					else 
-						ui_print "  -  Patching flash recovery"
-						RUN_RECOVERY_FLASH $newslot
-					fi
-				fi
-
-				if $flashmagisk ; then
-					ui_print "  -  Patching with magisk"
-					RUN_MAGISK
-				else
-					ui_print "  -  Patching boot"
-					RUN_BOOT_PATCH $newslot
-				fi
-				ui_print "  -  Patching vendor_boot"
-				RUN_VENDORBOOT_PATCH $newslot
-
-
-				ui_print "  -  Flashing new super partition. For OTG process very long 40-50 minutes. Please wait..."
-				simg2img $home/newsuper.img /dev/block/by-name/super
-				RUN_FINAL
+			ui_print "  -  ss13"
+			RUN_RW_LITE "vendor$newslot"
+			umount /vendor
+			mount /vendor
+			mount -o rw,remount /vendor 
+			RUN_CHECK_RW "/vendor/etc"
+			if [[ $retpop == 40 ]] ; then 
+				ui_print "  -  ss14"
+				RUN_DFE "/vendor"
 			elif [[ $retpop == 41 ]] ; then
-				ui_print "  -  Something went wrong. Send recovery.log to developer on TG @LeeGarChat"
+				RUN_DUMP_PART
+				RUN_DFE_RW_IN_SUPER
+				if [[ $retpop == 40 ]] ; then
+					RUN_POST_PATCH
+					ui_print "  -  Flashing new super partition. For OTG process very long 40-50 minutes. Please wait..."
+					simg2img $home/newsuper.img /dev/block/by-name/super
+					RUN_FINAL
+				elif [[ $retpop == 41 ]] ; then
+					ui_print "  -  Something went wrong. Send recovery.log to developer on TG @LeeGarChat"
+					exit 0
+				fi
+			fi
+		elif [[ $retpop == 40 ]] ; then 
+		if $sm8250 ; then 
+			mount -o rw,remount /system_root 
+			RUN_CHECK_RW "/system_root/system/etc"
+			if [[ $retpop == 40 ]] ; then 
+				RUN_INIT_PATCH "/system_root"
+			else 
+				ui_print "  -  Something wrong: error 41"
 				exit 0
 			fi
+			RUN_POST_PATCH
+			RUN_FINAL
+		fi
+
 		fi
 	fi
 
-	if $sm8250 ; then 
-		mount -o rw,remount /system_root 
-		RUN_CHECK_RW "/system_root/system/etc"
-		if [[ $retpop == 40 ]] ; then 
-			RUN_INIT_PATCH "/system_root"
-		else 
-			ui_print "  -  Something wrong: error 41"
-		fi
-	fi
-	if $flashrec ; then 
-		if $sm8250 ; then 
-			ui_print "  -  Patching flash recvoery for SM8250"
-			RUN_RECOVERY_FLASH_SM8250 $newslot
-		else 
-			ui_print "  -  Patching flash recvoery"
-			RUN_RECOVERY_FLASH $newslot
-		fi
-	fi
-
-	if $flashmagisk ; then
-		ui_print "  -  Patching boot with magisk"
-		RUN_MAGISK
-	else
-		ui_print "  -  Patching boot"
-		RUN_BOOT_PATCH $newslot
-	fi
-	ui_print "  -  Patching vendor_boot"
-	RUN_VENDORBOOT_PATCH $newslot
-	RUN_FINAL
+	
 
 fi
 
