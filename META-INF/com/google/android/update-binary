@@ -10,7 +10,7 @@ ui_print() { echo -e "ui_print $1\nui_print" >> "/proc/self/fd/$arg2"; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-ALPHA-4.0.1"
+MFPAPP="MFP-ALPHA-4.0.2"
 
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
@@ -604,7 +604,8 @@ RUN_SINGL_STRUCTURES(){
 	    for fwimgs in $( find $home/nonsuper/*.img ) ; do
 	        mv $fwimgs $home/fw/
 	    done
-	    rm -f $home/fw/super.img
+	    rm -f $home/fw/super*.img
+	    
 	elif [[ $1 == "51" ]] ; then 
 		pydump -c 8 -o $home/payload/ "$romzip"
 	    for bootimgs in vendor_boot boot ; do  
