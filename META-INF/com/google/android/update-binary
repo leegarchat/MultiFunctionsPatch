@@ -11,7 +11,7 @@ set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-BETA-4.1.7"
+MFPAPP="MFP-BETA-4.1.8"
 
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
@@ -77,6 +77,21 @@ RUN_READ_ARG(){
 
 	( grep "DFE" "$arguments" | grep -i "yes" ) && flashdfe=true || flashdfe=false
 
+	( grep "WIPE DATA" "$arguments" | grep -i "yes" ) && wipedata=true || wipedata=false
+
+	if ( grep "REBOOT AFTER" "$arguments" | grep -i "system" ) ; then
+		rebootafter=true 
+		rebootARG=system
+	elif ( grep "REBOOT AFTER" "$arguments" | grep -i "recovery" ) ; then
+		rebootafter=true 
+		rebootARG=recovery
+	elif ( grep "REBOOT AFTER" "$arguments" | grep -i "bootloader" ) ; then
+		rebootafter=true
+		rebootARG=bootloader 
+	else 
+		rebootafter=false
+	fi
+
 	if ( grep "FLASH ROM" "$arguments" | grep -i "yes" ) ; then
 		name_rom=$(grep -i "path rom" "$arguments")
 		name_rom=${name_rom#*\"} ; name_rom=${name_rom%\"*}
@@ -126,7 +141,7 @@ RUN_READ_ARG(){
 				mkdir -pv /tmp/bin/twrp/
 				cpio -H newc -o < /ramdisk-files.txt > /tmp/bin/twrp/ramdisk.cpio
 			else
-				ui_print "-  Ramdisk files have been modified, unable to create ramdisk to flash, fastboot boot twrp and try this option again or use the Install Recovery Ramdisk option."
+				ui_print "-  Ramdisk files have been modified, unable to create ramdisk to flash, fastboot boot twrp or reboot twrp and try again flash mfp with options RECOVERY REFLASH"
 				exit 99
 			fi
 		else reflashrec=false
@@ -200,6 +215,44 @@ RUN_MOUNT_SUPER(){
 	block_product=$( grep "/product" /etc/fstab | awk '{ print $1 }' )
 	block_odm=$( grep "/odm" /etc/fstab | awk '{ print $1 }' )
 
+	system_back=false
+	if [[ $block_system == system ]] ; then 
+		line_block_system=$( grep "/system_root" /etc/fstab )
+		new_line_block_system=$( grep "/system_root" /etc/fstab | awk '{ print "/dev/block/dm-15 "$2" "$3" "$4" "$5" "$6 }')
+		sed -i 's|'$line_block_system'|'$new_line_block_system'|' /etc/fstab 
+		block_system=/dev/block/dm-15 ; system_back=true
+	fi
+	system_ext_back=false
+	if [[ $block_system_ext == system_ext ]] ; then 
+		line_block_system_ext=$( grep "/system_ext" /etc/fstab )
+		new_line_block_system_ext=$( grep "/system_ext" /etc/fstab | awk '{ print "/dev/block/dm-16 "$2" "$3" "$4" "$5" "$6 }')
+		sed -i 's|'$line_block_system_ext'|'$new_line_block_system_ext'|' /etc/fstab 
+		block_system_ext=/dev/block/dm-16 ; system_ext_back=true
+	fi
+	vendor_back=false
+	if [[ $block_vendor == vendor ]] ; then 
+		line_block_vendor=$( grep "/vendor" /etc/fstab )
+		new_line_block_vendor=$( grep "/vendor" /etc/fstab | awk '{ print "/dev/block/dm-17 "$2" "$3" "$4" "$5" "$6 }')
+		sed -i 's|'$line_block_vendor'|'$new_line_block_vendor'|' /etc/fstab 
+		block_vendor=/dev/block/dm-17 ; vendor_back=true
+	fi
+	product_back=false
+	if [[ $block_product == product ]] ; then 
+		line_block_product=$( grep "/product" /etc/fstab )
+		new_line_block_product=$( grep "/product" /etc/fstab | awk '{ print "/dev/block/dm-18 "$2" "$3" "$4" "$5" "$6 }')
+		sed -i 's|'$line_block_product'|'$new_line_block_product'|' /etc/fstab 
+		block_product=/dev/block/dm-18 ; product_back=true
+	fi
+	odm_back=false
+	if [[ $block_odm == odm ]] ; then 
+		line_block_odm=$( grep "/odm" /etc/fstab )
+		new_line_block_odm=$( grep "/odm" /etc/fstab | awk '{ print "/dev/block/dm-19 "$2" "$3" "$4" "$5" "$6 }')
+		sed -i 's|'$line_block_odm'|'$new_line_block_odm'|' /etc/fstab 
+		block_odm=/dev/block/dm-19 ; odm_back=true
+	fi
+
+
+
 	for img in $block_system $block_system_ext $block_vendor $block_product $block_odm ; do 
 		mv $img "${img}.bak"
 	done
@@ -266,6 +319,23 @@ RUN_MOUNT_SUPER(){
 				exit 221
 			else
 				umount /system_root ; umount /vendor ; umount /product ; umount /system_ext ; umount /odm
+				
+				if $system_ext_back ; then
+					sed -i 's|'$new_line_block_system_ext'|'$line_block_system_ext'|' /etc/fstab 
+				fi
+				if $system_back ; then 
+					sed -i 's|'$new_line_block_system'|'$line_block_system'|' /etc/fstab 
+				fi
+				if $vendor_back ; then
+					sed -i 's|'$new_line_block_vendor'|'$line_block_vendor'|' /etc/fstab 
+				fi
+				if $product ; then
+					sed -i 's|'$new_line_block_product'|'$line_block_product'|' /etc/fstab 
+				fi
+				if $odm_back ; then 
+					sed -i 's|'$new_line_block_odm'|'$line_block_odm'|' /etc/fstab 
+				fi
+
 				for img in $block_system $block_system_ext $block_vendor $block_product $block_odm ; do 
 					rm $img
 					mv ${img}.bak $img
@@ -368,11 +438,7 @@ RUN_SINGL_STRUCTURES(){
 		    lpunpack $home/newdatsuper/super.img $home/newdatsuper/super
 		    for imgs in system_ext_a system_a vendor_a product_a odm_a ; do
 		        for imgsp in $( find $home/newdatsuper/super/$imgs.img ) ; do 
-			        if [[ $( stat -c%s $imgsp ) -ge 50 ]] ; then
-			            mv $imgsp $home/imgs/${imgs%_*}$newslot.img
-			        else
-			            rm -f $imgsp
-			        fi
+			            mv $imgsp $home/imgs/${imgs%_a*}$newslot.img
 		        done
 		    done
 		    rm $home/newdatsuper/super.img
@@ -397,11 +463,7 @@ RUN_SINGL_STRUCTURES(){
 	    lpunpack $home/super/super.img $home/super/super
 	    for imgs in system_ext_a system_a vendor_a product_a odm_a ; do
 	        for imgsp in $( find $home/super/super/$imgs*.img ) ; do 
-	        if [[ $( stat -c%s $imgsp ) -ge 50 ]] ; then
-	            mv $imgsp $home/imgs/${imgs%_*}$newslot.img
-	        else
-	            rm -f $imgsp
-	        fi
+	            mv $imgsp $home/imgs/${imgs%_a*}$newslot.img
 	        done
 	    done
 	    rm $home/super/super.img
@@ -666,6 +728,9 @@ RUN_FINAL(){
 
 	else 
 		bootctl set-active-boot-slot 1
+	fi
+	if $flashrec || $reflashrec ; then 
+		rm -f /data/system/storage.xml
 	fi
 	if $flashdfe ; then 
 			ui_print "-------******!!!!!!!!!!!!!!!!!!!!******------"
@@ -934,7 +999,17 @@ if ( echo $( basename $romzip ) | grep '(' ) || ( echo $( basename $romzip ) | g
 fi 
 LPDUMP="$home/lpdump.txt"
 lpdump --slot=$newslot >> $LPDUMP
-
+if ( grep "Size:" $LPDUMP ) ; then 
+	echo "super fine"
+else
+	if ( getprop ro.product.device | grep "alioth" ) ; then
+		simg2img /tmp/bin/super.img /dev/block/by-name/super
+		rm -f $LPDUMP
+		lpdump --slot=$newslot >> $LPDUMP
+	else 
+		exit 36
+	fi
+fi 
 if $flashrom || $flashADDzip ; then
     if $flashrom ; then
 	    RUN_CHECK_ROM
