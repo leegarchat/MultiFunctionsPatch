@@ -11,7 +11,7 @@ set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-ALPHA-4.1.4"
+MFPAPP="MFP-BETA-4.1.5"
 
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
@@ -219,9 +219,6 @@ RUN_MOUNT_SUPER(){
 	;;
 	--mount-fw)
 	if ! $extfw ; then
-	if $reflashrec ; then
-		dd if=/dev/block/by-name$slot_ab if=/tmp/bin/twrp.img
-	fi
 	for fwimg in $( find $home/fw/*.img ) ; do
 		[[ -d /dev/block/backup ]] || mkdir /dev/block/backup
 		bakblock="/dev/block/backup/"
@@ -602,13 +599,11 @@ RUN_RWS(){
 RUN_RECOVERY_REFLASH(){
 	ui_print "-  Starting recovery reflash"
 	mkdir -pv /tmp/bin/twrp/
-	mv /tmp/bin/twrp.img /tmp/bin/twrp/twrp.img
+	cpio -H newc -o < /ramdisk-files.txt > /tmp/bin/twrp/ramdisk.cpio
 	dd if=/dev/block/by-name/boot$slot_ab of=/tmp/bin/boot.img
 	cd /tmp/bin ; magiskboot unpack boot.img
 	rm -f ramdisk.cpio
-	cd /tmp/bin/twrp ; magiskboot unpack twrp.img
-	mv ramdisk.cpio /tmp/bin/
-	cd /tmp/bin/
+	mv /tmp/bin/twrp/ramdisk.cpio /tmp/bin/
 	cpio ramdisk.cpio sha1
 	magiskboot repack boot.img
 	dd if=/tmp/bin/new-boot.img of=/dev/block/by-name/boot$slot_ab
@@ -834,7 +829,7 @@ RUN_RECOVERY_FLASH_SM8250(){
 	}
 
 RUN_POST_PATCH(){
-	if $flashrec && ! $reflashrec ; then 
+	if ( $flashrec && ! $reflashrec ) || ( $flashrec && $reflashrec ) ; then 
 		if $sm8250 ; then 
 			ui_print "-  Patching flash recvoery for SM8250"
 			RUN_RECOVERY_FLASH_SM8250 
