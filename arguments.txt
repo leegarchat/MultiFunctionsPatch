@@ -2,8 +2,7 @@
 ####################################################################
 
 Basic Patch Arguments
-
-Arguments             PARAMETRS ( yes or no )
+Arguments             PARAMETRS ( "yes" or "no" )
 
 MAKERW                "no"
 DFE                   "no"
@@ -12,41 +11,21 @@ FLASH MAGISK          "no"
 FLASH RECOVERY        "no"
 FLASH ROM             "no"
 FLASH KERNEL          "no"
-FULL PATH ROM         "no"
-FULL PATH RECOVERY    "no"
-FULL PATH MAGISK      "no"
-FULL PATH KERNEL      "no"
 
 ####################################################################
 
 Basic Arguments for slot
-
-Arguments              PARAMETRS ( _a or _b )
+Arguments              PARAMETRS ( "_a" or "_b" )
 
 INSTALL SLOT           "default"
 
 ####################################################################
 
-The installation file is in the same folder as MFP.zip
+If you specify the file name without the full path to the file, then you need to put the files in the same folder with the MFP
+Arguments             PARAMETRS ( "filenme" ) or ( "/sdcard/folder/folder/filename" )
 
-Arguments             PARAMETRS ( filenme )
-
-Name ROM              " "
-Name Recovery         " "
-Name Magisk           " "
-Name Kernel           " "
-
-####################################################################
-
-If all files are in different folders
-Working with args FULL PATH ROM|RECOVERY|MAGISK|KERNEL
-
-Arguments             PARAMETRS ( /sdcard/folder/folder/filename )
-
-Full path to ROM      " "
-Full path to Recovery " "
-Full path to Magisk   " "
-Full path to Kernel   " "
-
-####################################################################
+Path ROM              "ROM.zip"
+Path Recovery         ""
+Path Magisk           " "
+Path Kernel           " "
 

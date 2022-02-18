@@ -5,18 +5,28 @@ export OUTFD=$2
 
 arg1=$1 ; arg2=$2 ; arg3=$3
 
-ui_print() { echo -e "ui_print $1\nui_print" >> "/proc/self/fd/$arg2"; }
+ui_print() { echo -e "ui_print $1" >> "/proc/self/fd/$arg2"; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-ALPHA-4.0.9"
+MFPAPP="MFP-ALPHA-4.0.10"
 
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
-slot_num=$(bootctl get-current-slot) ; slot_ab=$(bootctl get-suffix $slot_num)
+
+mount /data
+ui_print "  -  $slot_num $slot_ab"
 unzip -o "$arg3" "busybox" -d /tmp/bin/
 chmod 777 /tmp/bin/busybox
-
+mkdir -pv /tmp/bin
+mkdir -pv /tmp/lib
+mkdir -pv /tmp/twrp
+/tmp/bin/busybox unzip -o "$arg3" -d /tmp/
+chmod 777 /tmp/bin/*
+chmod 777 /tmp/lib/*
+find /tmp/bin/* -exec ln -s {} /system/bin \; 
+export PATH=/tmp/bin:$PATH 
+slot_num=$(bootctl get-current-slot) ; slot_ab=$(bootctl get-suffix $slot_num)
 RUN_LOGO(){
 	ui_print " "
 	ui_print "  ------******!!!!!!!!!!!!!!!!!!!!******-------"
@@ -65,60 +75,47 @@ RUN_READ_ARG(){
 	( grep "DFE" "$arguments" | grep -i "yes" ) && flashdfe=true || flashdfe=false
 
 	if ( grep "FLASH ROM" "$arguments" | grep -i "yes" ) ; then
-		if ( grep "FULL PATH ROM" "$arguments" | grep -i "YES" ) ; then
-			romzip=$(grep -i "full path to rom" "$arguments")
-			romzip=${romzip#*\"} ; romzip=${romzip%\"*}
-			if [[ -z $romzip ]] ; then flashrom=false ; else
-				if [[ -f $romzip ]] ; then flashrom=true
-				else ui_print "  -  Something wrong: error 144.5" ; exit 144 ; fi ; fi
-		else
-			name_rom=$(grep -i "name rom" "$arguments")
+			name_rom=$(grep -i "path rom" "$arguments")
 			name_rom=${name_rom#*\"} ; name_rom=${name_rom%\"*}
-			if [[ -z $name_rom ]] ; then flashrom=false ; else romzip="$zipfolder/$name_rom"
+			if [[ -z $name_rom ]] ; then flashrom=false ; else
+				if ( echo $name_rom | grep "/" ) ; then romzip=$name_rom
+				else romzip="$zipfolder/$name_rom" ; fi
 				if [[ -f $romzip ]] ; then flashrom=true
-				else ui_print "  -  Something wrong: error 144" ; exit 144 ; fi ; fi ; fi
+				else ui_print "  -  Not find $romzip" ; exit 144 ; fi ; fi ; fi
 	else flashrom=false ; fi
+
+
 	if ( grep "FLASH RECOVERY" "$arguments" | grep -i "yes" ) ; then
-		if ( grep -i "FULL PATH RECOVERY" "$arguments" | grep -i "YES" ) ; then
-			reczip=$(grep -i "full path to recovery" "$arguments")
-			reczip=${reczip#*\"} ; reczip=${reczip%\"*}
-			if [[ -z $reczip ]] ; then flashrec=false ; else
-				if [[ -f $reczip ]] ; then flashrec=true
-				else ui_print "  -  Something wrong: error 140.5" ; exit 140 ; fi ; fi
-		else
-			name_rec=$(grep -i "name recovery" "$arguments")
+			name_rec=$(grep -i "path recovery" "$arguments")
 			name_rec=${name_rec#*\"} ; name_rec=${name_rec%\"*}
-			if [[ -z $name_rec ]] ; then flashrec=false ; else reczip="$zipfolder/$name_rec"
+			if [[ -z $name_rec ]] ; then flashrec=false ; else
+				if ( echo $name_rec | grep "/" ) ; then reczip=$name_rec
+				else reczip="$zipfolder/$name_rec" ; fi
 				if [[ -f $reczip ]] ; then flashrec=true
-				else ui_print "  -  Something wrong: error 140" ; exit 140 ; fi ; fi ; fi
+				else ui_print "  -  Not find $reczip" ; exit 140 ; fi ; fi
 	else flashrec=false ; fi
+
+
+
 	if ( grep "FLASH MAGISK" "$arguments" | grep -i "yes" ) ; then
-		if ( grep -i "FULL PATH MAGISK" "$arguments" | grep -i "YES" ) ; then
-			magiskzip=$(grep -i "full path to magisk" "$arguments")
-			magiskzip=${magiskzip#*\"} ; magiskzip=${magiskzip%\"*}
-			if [[ -z $magiskzip ]] ; then flashmagisk=false ; else 
-				if [[ -f $magiskzip ]] ; then flashmagisk=true
-			else ui_print "  -  Something wrong: error 141.5" ; exit 141 ; fi ; fi
-		else 
-			name_magisk=$(grep -i "name magisk" "$arguments")
+			name_magisk=$(grep -i "path magisk" "$arguments")
 			name_magisk=${name_magisk#*\"} ; name_magisk=${name_magisk%\"*}
-			if [[ -z $name_magisk ]] ; then flashmagisk=false ; else magiskzip="$zipfolder/$name_magisk"
+			if [[ -z $name_magisk ]] ; then flashmagisk=false ; else
+				if ( echo $name_magisk | grep "/" ) ; then ; magiskzip=$name_magisk
+				else magiskzip="$zipfolder/$name_magisk" ; fi
 				if [[ -f $magiskzip ]] ; then flashmagisk=true
-			else ui_print "  -  Something wrong: error 141" ; exit 141 ; fi ; fi ; fi
+			else ui_print "  -  Not find $magiskzip" ; exit 141 ; fi ; fi
 	else flashmagisk=false ; fi
+
+
 	if ( grep "FLASH KERNEL" "$arguments" | grep -i "yes" ) ; then
-		if ( grep -i "FULL PATH KERNEL" "$arguments" | grep -i "YES" ) ; then 
-			kerzip=$(grep -i "full path to kernel" "$arguments")
-			kerzip=${kerzip#*\"} ; kerzip=${kerzip%\"*}
-			if [[ -z $kerzip ]] ; then flashker=false ; else
-				if [[ -f $kerzip ]] ; then flashker=true
-			else ui_print "  -  Something wrong: error 142" ; exit 142 ; fi ; fi
-		else
-			name_ker=$(grep -i "name kernel" "$arguments")
+			name_ker=$(grep -i "path kernel" "$arguments")
 			name_ker=${name_ker#*\"} ; name_ker=${name_ker%\"*}
-			if [[ -z $name_ker ]] ; then flashker=false ; else kerzip="$zipfolder/$name_ker"
+			if [[ -z $name_ker ]] ; then flashker=false ; else
+				if ( echo $name_ker | grep "/" ) ; then ; kerzip=$name_ker
+				else kerzip="$zipfolder/$name_ker" ; fi
 				if [[ -f $kerzip ]] ; then flashker=true
-			else ui_print "  -  Something wrong: error 142" ; exit 142 ; fi ; fi ; fi
+			else ui_print "  -  Not find $kerzip" ; exit 142 ; fi ; fi ; fi
 			
 	else flashker=false ; fi
 
@@ -127,8 +124,8 @@ RUN_READ_ARG(){
 		$flashrom && newslot="_a" || newslot="$slot_ab"
 	elif ( grep "INSTALL SLOT" "$arguments" | grep -i "_b" ) ; then
 		$flashrom && newslot="_b" || newslot="$slot_ab"
-	else newslot="$slot_ab" ; fi
-
+	else 
+		newslot="$slot_ab" ; fi
 	if ( grep "REFLASH RECOVERY" "$arguments" | grep -i "yes" ) ; then 
 		$flashrom && reflashrec=true || reflashrec=false
 	else reflashrec=false ; fi
@@ -221,7 +218,6 @@ RUN_ARG_CHECK(){
 			arguments="$zipfolder/arguments.txt"
 			RUN_READ_ARG
 		fi
-		RUN_ARG_CHECK_ZIP
 		RUN_LOGO
 		if ! $flashrom && ! $flashrec && ! $flashker && ! $reflashrec && ! $flashdfe && ! $flashrw ! $flashmagisk ; then 
 			ui_print "  -  No arguments"
@@ -242,13 +238,19 @@ if [[ $ffss == "88" ]] ; then /tmp/bin/busybox unzip -o "$3" "arguments.txt" -d 
 elif [[  $ffss == "89" ]]; then arguments="$zipfolder/arguments.txt" ; RUN_READ_ARG ; RUN_ARG_CHECK
 else RUN_ARG_CHECK
 fi
-if ( mountpoint -q /data/ ) ; then
+if ( /tmp/bin/toybox mountpoint -q /sdcard/ ) ; then
 	home="/sdcard/MFPAPP" 
+	ui_print "  -  Home folder $home"
+elif ( /tmp/bin/toybox mountpoint -q /data/ ) ; then
+	home="/data/media/0/MFPAPP"
+	ui_print "  -  Home folder $home"
 else
-	if ( mountpoint -q /usb_otg/ ) ; then 
+	if ( /tmp/bin/toybox mountpoint -q /usb_otg/ ) ; then 
 		home="/usb_otg/MFPAPP" 
+		ui_print "  -  Home folder $home"
 	else 
-		ui_print "  -  Need OTG or mounted /data/" 
+		ui_print "  -  Need OTG or mounted /sdcard/ for stable working" 
+		exit 66
 	fi
 fi
 rm -rf $home
@@ -259,14 +261,6 @@ if ( echo $( basename $romzip ) | grep "\(" ) || ( echo $( basename $romzip ) | 
 fi 
 
 sm8250=false
-mkdir -pv /tmp/bin
-mkdir -pv /tmp/lib
-mkdir -pv /tmp/twrp
-/tmp/bin/busybox unzip -o "$arg3" -d /tmp/
-chmod 777 /tmp/bin/*
-chmod 777 /tmp/lib/*
-find /tmp/bin/* -exec ln -s {} /system/bin \; 
-export PATH=/tmp/bin:$PATH 
 mkdir -pv $home ; mkdir -pv $home/payload
 mkdir -pv $home/imgs ; mkdir -pv $home/super ; mkdir -pv $home/nonsuper 
 mkdir -pv $home/boot ; mkdir -pv $home/fw ; mkdir -pv $home/newdat
@@ -337,8 +331,8 @@ RUN_DFE(){
 					for ffff in "fileencryption=" "forcefdeorfbe=" "encryptable=" "forceencrypt=" "metadata_encryption=" "keydirectory=" "avb=" "avb_keys="
 	                do
 	                    grep "$ffff" $fstabes && rem="${k#*"$ffff"}" && rem="${rem%%,*}" && rem="${ffff}${rem%%"$tabes"*}" || continue
-	                    grep ",$rem" $fstabes && sed -i 's|,'$rem'||' $fstabes && size_c=true && ui_print "  -  Remove ${ffff%=*}" && "  -  Flag ${rem#*"$ffff"}" 
-	                    grep "$rem" $fstabes && sed -i 's|'$rem'||' $fstabes && size_c=true && ui_print "  -  Remove ${ffff%=*}" && "  -  Flag ${rem#*"$ffff"}"
+	                    grep ",$rem" $fstabes && sed -i 's|,'$rem'||' $fstabes && size_c=true && ui_print "  -  Remove ${ffff%=*}" && ui_print "  -  Flag ${rem#*"$ffff"}" 
+	                    grep "$rem" $fstabes && sed -i 's|'$rem'||' $fstabes && size_c=true && ui_print "  -  Remove ${ffff%=*}" && ui_print "  -  Flag ${rem#*"$ffff"}"
 	                done 
 				done
 				grep "avb" $fstabes && sed -i 's|,avb||g' $fstabes && size_c=true && ui_print "  -  Remove avb"
@@ -430,7 +424,7 @@ RUN_ALL_RW(){
     else ui_print "  -  Non odm" && odms=0
     fi
 
-    echo "  -  $Ss $vs $ss $ps $sss $odms"
+    ui_print "  -  $Ss $vs $ss $ps $sss $odms"
     ssfree=$( calc "$Ss-$vs-8194304-$odms-$sss-$ss-$ps" )
     tfs=$( expr $ssfree / 1024 )
     echo "  -  $ssfree $tfs"
@@ -485,6 +479,7 @@ RUN_MOUNT_IMG(){
         	ui_print "  -  $mountimgN image has temporarily been mounted" 
         	retpop=40
         else 
+        	ui_print "  -  $mountimgN not mounted"
         	retpop=41
     fi
 
@@ -652,7 +647,7 @@ RUN_RECOVERY_REFLASH(){
 	}
 RUN_RECOVERY_FLASH(){
 	ui_print "  -  Starting recovery Flashing $( basename $reczip )"
-	if ( find $reczip ) ; then 
+	if [[ -f $reczip ]] ; then 
 		case $reczip in
 			*.img) 
 			cp $reczip /tmp/bin/twrp.img
@@ -683,15 +678,15 @@ RUN_RECOVERY_FLASH(){
 	fi
 	}	
 RUN_CHECK_ROM(){
-	if [[ $( /tmp/bin/toybox df $home | awk ' NR==2 { if ($4 > 25843545) print "1" }' ) == "1" ]] ; then 
-		ui_print "  -  Size normal"
+	if [[ $( /tmp/bin/toybox df $home | awk ' NR==2 { if ($4 > 25843545) print "1" }' ) == "1" ]] ; then
+		ui_print "  -  Size normal $( calc "$( /tmp/bin/toybox df $home | awk ' NR==2 { print $4 }' )" )"
 	else
 		ui_print "  -  Not enough free space"
-		ui_print "  -  You have $( calc ""$(/tmp/bin/toybox df $home | awk ' NR==2 { print $4 }' )"/1024/1024" )GB"
+		ui_print "  -  You have $( calc ""$( /tmp/bin/toybox df $home | awk ' NR==2 { print $4 }' )"/1024/1024" )GB"
 		ui_print "  -  Need 24gb free space"
 		exit 101
 	fi
-    if find $romzip ; then
+    if [[ -f $romzip ]] ; then
         ui_print "  -  $romzip find"
         if $( 7za l "$romzip" | grep -q payload.bin ) ; then 
             ui_print "  -  Detected payload.bin"
@@ -776,7 +771,7 @@ RUN_SINGL_STRUCTURES(){
 	    for cust in $( find $home/newdatsuper/cust*.img); do
 	    	mv $cust $home/fw/cust.img
 	    done
-	    if find $home/newdatsuper/super.img ; then
+	    if [[ -f $home/newdatsuper/super.img ]] ; then
 	    	if ( file $home/newdatsuper/super.img | grep -q sparse ) ; then 
 			    simg2img $home/newdatsuper/super.img $home/newdatsuper/super.row.img
 			    rm $home/newdatsuper/super.img
@@ -961,10 +956,10 @@ RUN_RECOVERY_FLASH_SM8250(){
 	}
 RUN_DUMP_PART(){
 	if [ $(/tmp/bin/toybox df $home | awk ' NR==2 { if ($4 > 15843545) print "1" }') == "1" ] ; then 
-		ui_print "  -  Size normal"
+		ui_print "  -  Size normal $( calc "$( /tmp/bin/toybox df $home | awk ' NR==2 { print $4 }' )" )"
 	else
 		ui_print "  -  Not enough free space"
-		ui_print "  -  you have $( calc "$(/tmp/bin/toybox df $home | awk ' NR==2 { print $4 }' )/1024/1024" )GB"
+		ui_print "  -  you have $( calc "$( /tmp/bin/toybox df $home | awk ' NR==2 { print $4 }' )/1024/1024" )GB"
 		ui_print "  -  Need 24gb free space"
 		exit 101
 	fi
@@ -1074,7 +1069,7 @@ RUN_CHECK_PART(){
 
 	}
 RUN_FLASH_KERNEL(){
-	if find $kerzip ; then
+	if [[ -f $kerzip ]] ; then
 		ui_print "  -  Flashing Kernel $( basename $kerzip )"
 		mkdir -pv /tmp/bin/ker
 		cp $kerzip /tmp/kernel.zip
