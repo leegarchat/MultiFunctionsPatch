@@ -1,0 +1,1001 @@
+#!/sbin/sh
+
+#Объявление основых переменных и постоянных функций
+export OUTFD=$2
+
+arg1=$1 ; arg2=$2 ; arg3=$3
+
+ui_print() { echo -e "ui_print $1\nui_print" >> "/proc/self/fd/$arg2"; }
+
+calc(){ awk 'BEGIN{ print int('$1') }' ; }
+tabes="
+"
+MFPAPP="MFP-ALPHA-4.0.0"
+
+zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
+
+slot_num=$(bootctl get-current-slot) ; slot_ab=$(bootctl get-suffix $slot_num)
+
+
+case $zipname in 
+	*MAKERW*) flashrw=true ;; 
+		   *) flashrw=false ;; 
+esac
+case $zipname in 
+	*DFE*) flashdfe=true ;; 
+	    *) flashdfe=false ;; 
+esac
+case $zipname in 
+	*FROM*EROM*) flashrom=true 
+				name_rom=${zipname#*FROM-} ; name_rom=${name_rom#*FROM}
+				name_rom=${name_rom%-EROM*} ; name_rom=${name_rom%EROM*}
+				;; 
+			   *) flashrom=false ;;
+esac
+case $zipname in 
+	*INSLOT-A*) $flashrom && newslot="_a" || newslot="$slot_ab" ;; 
+	*INSLOT-B*) $flashrom && newslot="_b" || newslot="$slot_ab" ;; 
+	         *) newslot="$slot_ab" ;; 
+esac
+case $zipname in 
+	*REFLASHREC*) $flashrom && reflashrec=true || reflashrec=false ;; 
+			   *) reflashrec=false ;; 
+esac
+case $zipname in 
+	*FREC*EREC*) flashrec=true  
+				name_rec=${zipname#*FREC-} ; name_rec=${name_rec#*FREC}
+				name_rec=${name_rec%-EREC*} ; name_rec=${name_rec%EREC*}
+				reflashrec=false
+				;;
+	   		   *) flashrec=false ;; 
+esac
+case $zipname in 
+	*FKER*EKER*) flashker=true  
+				name_ker=${zipname#*FKER-} ; name_ker=${name_ker#*FKER}
+				name_ker=${name_ker%-EKER*} ; name_ker=${name_ker%EKER*}
+				;;
+	   		   *) flashker=false ;; 
+esac
+case $zipname in 
+	*FMAGISK*EMAGISK*) flashmagisk=true 
+						name_magisk=${zipname#*FMAGISK-} ; name_magisk=${name_magisk#*FMAGISK}
+						name_magisk=${name_magisk%-EMAGISK*} ; name_magisk=${name_magisk%EMAGISK*}
+						;; 
+					 *) flashmagisk=false ;; 
+esac
+
+ui_print " "
+ui_print "  ------******!!!!!!!!!!!!!!!!!!!!******-------"
+ui_print " "
+ui_print "  -  $MFPAPP"
+ui_print "  -  by @LeeGarChat"
+ui_print "  -  Telegram group @PocoF3DFE"
+ui_print "  -  Thanks for @ErenMetesarr"
+ui_print " "
+ui_print "  ------******!!!!!!!!!!!!!!!!!!!!******-------"
+ui_print " "
+ui_print "  -  MAKERW: $flashrw"
+ui_print "  -  DFE: $flashdfe"
+ui_print "  -  MAGISK: $flashmagisk"
+ui_print "  -  REFLASH RECOVERY: $reflashrec"
+ui_print "  -  FLASH RECOVERY: $flashrec"
+ui_print "  -  INSLOT-A/B: $newslot"
+ui_print "  -  FLASH ROM: $flashrom"
+ui_print "  -  FLASH KERNEL: $flashker"
+
+
+if ( mountpoint -q /data/ ) ; then
+	home="/sdcard/MFPAPP" 
+else
+	if ( mountpoint -q /usb_otg/ ) ; then 
+		home="/usb_otg/MFPAPP" 
+	else 
+		ui_print "  -  Need OTG or mounted /data/" 
+	fi
+fi
+rm -rf $home
+
+sm8250=false
+unzip -o $arg3 -d /tmp/
+chmod 777 /tmp/bin/*
+chmod 777 /tmp/lib/*
+find /tmp/bin/* -exec ln -s {} /system/bin \; 
+export PATH=/tmp/bin:$PATH 
+mkdir -pv $home ; mkdir -pv $home/payload
+mkdir -pv $home/imgs ; mkdir -pv $home/super ; mkdir -pv $home/nonsuper 
+mkdir -pv $home/boot ; mkdir -pv $home/fw ; mkdir -pv $home/newdat
+LPDUMP="$home/lpdump.txt"
+lpdump --slot=$newslot >> $LPDUMP
+
+
+
+
+RUN_FINAL(){
+	$flashker && RUN_FLASH_KERNEL
+	if [ $newslot == $slot_ab ] ; then
+		avbctl --force disable-verity 
+		avbctl --force disable-verification
+		ui_print "  -  $(avbctl get-verification)"
+		ui_print "  -  $(avbctl get-verity)"
+	else
+		dd if=/dev/block/by-name/vbmeta$newslot of=/dev/block/by-name/vbmeta$slot_ab
+		dd if=/dev/block/by-name/vbmeta_system$newslot of=/dev/block/by-name/vbmeta_system$slot_ab
+		avbctl --force disable-verity 
+		avbctl --force disable-verification
+		ui_print "  -  $(avbctl get-verification)"
+		ui_print "  -  $(avbctl get-verity)"
+		dd if=/dev/block/by-name/vbmeta$slot_ab of=/dev/block/by-name/vbmeta$newslot
+		dd if=/dev/block/by-name/vbmeta_system$slot_ab of=/dev/block/by-name/vbmeta_system$newslot
+	fi
+	if [ $newslot == "_a" ] ; then
+
+		bootctl set-active-boot-slot 0
+
+	else 
+		bootctl set-active-boot-slot 1
+	fi
+	if $flashdfe ; then 
+			ui_print "  -------******!!!!!!!!!!!!!!!!!!!!******------"
+			ui_print "  ---***|      Comlite decryption!      |***---"
+			ui_print "  ---*If you are encrypted, you need to do**---"
+			ui_print "  ---***|          Format data          |***---"
+			ui_print "  -If you Decrypted and change the ROM, after--"
+			ui_print "  -flashing the new ROM, you need to flash the-"
+			ui_print "  ----DFE again, you are also advised to do*---"
+			ui_print "  ---***|           Wipe Data           |***---"
+			ui_print "  --If you are upgrading the ROM you need to---"
+			ui_print "  ---***|       flash the DFE again     |***---"
+			ui_print "  ------******!!!!!!!!!!!!!!!!!!!!******-------"
+	fi
+	exit 0 
+
+
+	}
+RUN_DFE(){
+	ui_print "  -  Starting DFE patch"
+	sm8250=false
+	size_c=false
+	path_to=$1
+	RUN_CHECK_RW "$path_to/etc"
+	if [[ $retpop == "40" ]] ; then
+		ui_print "  -  Starting patching fstabes"
+		for fstabes in $( find $path_to/etc/*fstab* ) ; do
+			if ( grep "/userdata" $fstabes ) && ( grep "/metadata" $fstabes ) ; then 
+				while (grep "fileencryption=" $fstabes) || (grep "forcefdeorfbe=" $fstabes) || (grep "encryptable=" $fstabes) \
+	                || (grep "forceencrypt=" $fstabes) || (grep "metadata_encryption=" $fstabes) || (grep "keydirectory=" $fstabes) \
+	                || (grep "avb=" $fstabes) || (grep "avb_keys=" $fstabes) ; do
+	                k=$(cat $fstabes)
+					for ffff in "fileencryption=" "forcefdeorfbe=" "encryptable=" "forceencrypt=" "metadata_encryption=" "keydirectory=" "avb=" "avb_keys="
+	                do
+	                    grep "$ffff" $fstabes && rem="${k#*"$ffff"}" && rem="${rem%%,*}" && rem="${ffff}${rem%%"$tabes"*}" || continue
+	                    grep ",$rem" $fstabes && sed -i 's|,'$rem'||' $fstabes && size_c=true && ui_print "  -  Remove $rem"
+	                    grep "$rem" $fstabes && sed -i 's|'$rem'||' $fstabes && size_c=true && ui_print "  -  Remove $rem"
+	                done 
+				done
+				grep "avb" $fstabes && sed -i 's|,avb||g' $fstabes && size_c=true && ui_print "  -  Remove avb"
+                grep "quota" $fstabes && sed -i 's|,quota||g' $fstabes && size_c=true && ui_print "  -  Remove quota"
+                grep "inlinecrypt" $fstabes && sed -i 's|,inlinecrypt||g' $fstabes && size_c=true && ui_print "  -  Remove inlinecrypt"
+                grep "wrappedkey" $fstabes && sed -i 's|,wrappedkey||g' $fstabes && size_c=true && ui_print "  -  Remove weappedkey"
+				if [[ $( stat -c%s $fstabes ) -ge 30 ]] && $size_c ; then 
+					ui_print "  -  $(basename $fstabes): Has been succesfully patched for decryption."
+					if [ $( basename $fstabes) == "fstab.sm8250" ] ; then 
+	                    sm8250=true
+	                fi
+	            elif [[ $( stat -c%s $fstabes ) -ge 30 ]] && ! $size_c ; then 
+	            	ui_print "  -  $( basename $fstabes ): Doesn't need patching"
+	            	if [ $( basename $fstabes) == "fstab.sm8250" ] ; then 
+	                    sm8250=true
+	                fi
+				else
+					# Фстаб ушел в 0
+					ui_print "  -  Something wrong: error 89"
+					ui_print "  -  You need reflash rom"
+					exit 0
+				fi
+			fi
+		done
+	else
+		# тестовый файл не может быть записан
+		ui_print "  -  Something wrong: error 87"
+		return 87
+	fi
+	}
+RUN_CHECK_RW(){
+	echo "test test test TEST TESTR TEST" >> $1/test.txt
+	if [[ $( stat -c%s $1/test.txt ) -ge 6 ]] ; then
+		rm -f $1/test.txt
+		retpop=40
+	else
+		retpop=41
+	fi
+
+	}
+RUN_RW(){
+
+	umount /tmp/$( basename $1 )
+    ui_print "  -  Give RW from $( basename $1 )"
+    imgsize=$( stat -c%s $1 ) 
+    new_size=$( calc "$imgsize*1.25/512" ) 
+    ui_print "  -  $1 $imgsize $new_size"
+    resize2fs -f $1 ${new_size}s
+    e2fsck -y -E unshare_blocks $1
+    resize2fs -f -M $1
+    resize2fs -f -M $1
+
+	}
+RUN_RWS(){
+
+	umount /tmp/$( basename $1 )
+	psize=$2
+    imgsize=$( stat -c%s $1 ) 
+    new_size=$( calc "($imgsize+$2)/512" )
+    ui_print "  -  $1 $imgsize $new_size"
+    resize2fs -f $1 ${new_size}s
+
+	}
+RUN_ALL_RW(){
+
+	ui_print "  -  Give RW for all partition"
+    for img_rw in vendor system_ext product system ; do
+        RUN_RW "$home/imgs/$img_rw$newslot.img"
+    done
+    Ss=$( grep -F -m 1 "Size:" $LPDUMP | awk '{print $2}' )
+    vs=$( stat -c%s $home/imgs/vendor$newslot.img )
+    ss=$( stat -c%s $home/imgs/system$newslot.img )
+    if [ -f $home/imgs/product$newslot.img ] ; then 
+        ps=$(stat -c%s $home/imgs/product$newslot.img)
+        psf=true
+    else
+        psf=false 
+        ui_print "  -  Non product" && ps=0
+    fi
+    if [ -f $home/imgs/system_ext$newslot.img ] ; then 
+        sss=$(stat -c%s $home/imgs/system_ext$newslot.img)
+        sssf=true
+    else 
+        sssf=false
+        ui_print "  -  Non system_ext" && sss=0
+    fi
+    if [ -f $home/imgs/odm$newslot.img ] ; then 
+        odms=$(stat -c%s $home/imgs/odm$newslot.img)
+    else ui_print "  -  Non odm" && odms=0
+    fi
+
+    ui_print "  -  $Ss $vs $ss $ps $sss $odms"
+    ssfree=$( calc "$Ss-$vs-8194304-$odms-$sss-$ss-$ps" )
+    tfs=$( expr $ssfree / 1024 )
+    ui_print "  -  $ssfree $tfs"
+    if [ $tfs -gt 1 ] ; then
+        if $psf && $sssf ; then
+        	ui_print "  - full complect"
+            nss=$( calc "$ssfree/3" )
+            nvs=$( calc "($ssfree-$nss)/3" )
+            nps=$( calc "($ssfree-$nss-$nvs)/2" )
+            nsss=$( calc "$ssfree-$nss-$nvs-$nps" )
+        fi
+        if ! $psf && $sssf ; then
+        	ui_print "  -  NON product"
+            nss=$( calc "$ssfree/3" )
+            nvs=$( calc "($ssfree-$nss)/2" )
+            nsss=$( calc "$ssfree-$nss-$nvs" )
+        fi
+        if $psf && ! $sssf ; then
+        	ui_print "  - NON system_ext"
+            nss=$( calc "$ssfree/3" )
+            nvs=$( calc "($ssfree-$nss)/2" )
+            nps=$( calc "$ssfree-$nss-$nvs" )
+        fi
+        if ! $psf && ! $sssf ; then 
+        	ui_print "  -  NON product and system_ext"
+            nss=$( calc "$ssfree/2" )
+            nvs=$( calc "$ssfree-$nss" )
+        fi
+        ui_print "  -  $nss $nvs $nps $nsss"
+        RUN_RWS "$home/imgs/system$newslot.img" "$nss" 
+        RUN_RWS "$home/imgs/vendor$newslot.img" "$nvs"
+        $psf && RUN_RWS "$home/imgs/product$newslot.img" "$nps"
+        $sssf && RUN_RWS "$home/imgs/system_ext$newslot.img" "$nsss"
+    else 
+        ui_print "  -  Unable to expand memory, super will be built with old parameters"
+
+    fi
+	}
+RUN_MOUNT_IMG(){
+	mountimg=$1
+    mountimgN=$(basename ${mountimg%.img*})
+    mkdir -pv /tmp/$mountimgN
+    ( mountpoint -q /tmp/$mountimgN ) && umount /tmp/$mountimgN
+    while (( ${count:=0} < 6 )) ; do
+        (( count++ ))
+        mount $mountimg /tmp/$mountimgN
+        ( mountpoint -q /tmp/$mountimgN/ ) && break
+    done
+
+    if ( mountpoint -q /tmp/$mountimgN/ )
+        then 
+        	ui_print "  -  $mountimgN image has temporarily been mounted" 
+        	retpop=40
+        else 
+        	retpop=41
+    fi
+
+	}
+RUN_RW_LITE(){
+    e2fsck -f /dev/block/mapper/$1
+    blockdev --setrw /dev/block//mapper/$1
+    e2fsck -E unshare_blocks -y -f /dev/block/mapper/$1
+    resize2fs /dev/block/mapper/$1
+	}
+RUN_MAGISK_MODULE(){
+
+
+
+
+	#########################################################
+	RUN_START_MAGISK(){
+		umask 022
+
+		OUTFD=$2
+		APK="$3"
+		COMMONDIR=$INSTALLER/assets
+		CHROMEDIR=$INSTALLER/assets/chromeos
+
+		if [ ! -f $COMMONDIR/util_functions.sh ]; then
+		  echo "! Unable to extract zip file!"
+		  exit 1
+		fi
+		sed -i 's|ui_print "- |ui_print "  -  |g' $COMMONDIR/util_functions.sh
+		sed -i 's|ui_print "- |ui_print "  -  |g' $COMMONDIR/boot_patch.sh
+		sed -i 's|ui_print "$bar"|ui_print "     $bar"|g' $COMMONDIR/util_functions.sh
+		
+		. $COMMONDIR/util_functions.sh
+
+
+
+		############
+		# Detection
+		############
+
+		get_flags
+		BOOTIMAGE="/dev/block/by-name/boot$newslot"
+		ui_print "  -  Target image: $BOOTIMAGE"
+
+		# Detect version and architecture
+		api_level_arch_detect
+
+		[ $API -lt 21 ] && abort "! Magisk only support Android 5.0 and above"
+
+		ui_print "  -  Device platform: $ABI"
+
+		if echo $MAGISK_VER | grep -q '\.'; then
+		  PRETTY_VER=$MAGISK_VER
+		else
+		  PRETTY_VER="$MAGISK_VER($MAGISK_VER_CODE)"
+		fi
+		print_title " -  Magisk $PRETTY_VER Installer"
+
+		# Detect version and architecture
+		api_level_arch_detect
+
+		[ $API -lt 21 ] && abort "! Magisk only support Android 5.0 and above"
+
+		ui_print "  -  Device platform: $ABI"
+
+		BINDIR=$INSTALLER/lib/$ABI
+		cd $BINDIR
+		for file in lib*.so; do mv "$file" "${file:3:${#file}-6}"; done
+		cd /
+		cp -af $INSTALLER/lib/$ABI32/libmagisk32.so $BINDIR/magisk32 2>/dev/null
+		cp -af $CHROMEDIR/. $BINDIR/chromeos
+		chmod -R 755 $BINDIR
+
+		# Check if system root is installed and remove
+		$BOOTMODE || remove_system_su
+
+		##############
+		# Environment
+		##############
+
+		ui_print "  -  Constructing environment"
+
+		# Copy required files
+		rm -rf $MAGISKBIN/* 2>/dev/null
+		mkdir -p $MAGISKBIN 2>/dev/null
+		cp -af $BINDIR/. $COMMONDIR/. $BBBIN $MAGISKBIN
+		chmod -R 755 $MAGISKBIN
+
+		# # addon.d
+		# if [ -d /system/addon.d ]; then
+		#   ui_print "- Adding addon.d survival script"
+		#   blockdev --setrw /dev/block/mapper/system$SLOT 2>/dev/null
+		#   mount -o rw,remount /system || mount -o rw,remount /
+		#   ADDOND=/system/addon.d/99-magisk.sh
+		#   cp -af $COMMONDIR/addon.d.sh $ADDOND
+		#   chmod 755 $ADDOND
+		# fi
+
+		##################
+		# Image Patching
+		##################
+
+		install_magisk
+
+		# Cleanups
+		$BOOTMODE || recovery_cleanup
+		rm -rf $TMPDIR
+
+		ui_print "  -  Done"
+		}
+
+	TMPDIR=/dev/tmp
+	rm -rf $TMPDIR
+	mkdir -p $TMPDIR 2>/dev/null
+
+	export BBBIN=$TMPDIR/busybox
+	for arch in "x86_64" "x86" "arm64-v8a" "armeabi-v7a"; do
+	  unzip -o "$3" "lib/$arch/libbusybox.so" -d $TMPDIR >&2
+	  libpath="$TMPDIR/lib/$arch/libbusybox.so"
+	  chmod 755 $libpath
+	  if [ -x $libpath ] && $libpath >/dev/null 2>&1; then
+	    mv -f $libpath $BBBIN
+	    break
+	  fi
+	done
+	$BBBIN rm -rf $TMPDIR/lib
+
+	export INSTALLER=$TMPDIR/install
+	$BBBIN mkdir -p $INSTALLER
+	$BBBIN unzip -o "$3" "assets/*" "lib/*" "META-INF/com/google/*" -x "lib/*/libbusybox.so" -d $INSTALLER >&2
+	export ASH_STANDALONE=1
+	RUN_START_MAGISK $1 $2 $3
+
+
+	
+	}
+RUN_MAGISK(){
+	ui_print "  -  Starting magisk patch"
+	if ( find $zipfolder/$name_magisk ) ; then 
+		7za e "$zipfolder/$name_magisk" -o/tmp/bin/ "*update-binary" -y -r -mmt8
+		if [[ $newslot == $slot_ab ]] ; then 
+		RUN_MAGISK_MODULE "$arg1" "$arg2" "$zipfolder/$name_magisk"
+		else
+		RUN_MAGISK_MODULE "$arg1" "$arg2" "$zipfolder/$name_magisk"
+		dd if=/dev/block/by-name/boot$slot_ab of=/dev/block/by-name/boot$newslot
+		fi
+	else ui_print "  -  $name_magisk not finded"
+	fi
+	}
+RUN_RECOVERY_REFLASH(){
+	ui_print "  -  Starting recovery reflash"
+	mkdir -pv /tmp/bin/twrp/
+	mv /tmp/bin/twrp.img /tmp/bin/twrp/twrp.img
+	dd if=/dev/block/by-name/boot$1 of=/tmp/bin/boot.img
+	cd /tmp/bin ; magiskboot unpack boot.img
+	rm -f ramdisk.cpio
+	cd /tmp/bin/twrp ; magiskboot unpack twrp.img
+	mv ramdisk.cpio /tmp/bin/
+	cd /tmp/bin/
+	cpio ramdisk.cpio sha1
+	magiskboot repack boot.img
+	dd if=/tmp/bin/new-boot.img of=/dev/block/by-name/boot$1
+	rm -rf "twrp" "ramdisk*" "*.img" "kernel*"
+	}
+RUN_RECOVERY_FLASH(){
+	ui_print "  -  Starting recovery Flashing"
+	if ( find $zipfolder/$name_rec ) ; then 
+		case $name_rec in
+			*.img) 
+			cp $zipfolder/$name_rec /tmp/bin/twrp.img
+				;;
+			*.zip) 
+			7za e "$zipfolder/$name_rec" -o/tmp/bin/ "recovery.img" -y -r -mmt8
+			mv /tmp/bin/recovery.img /tmp/bin/twrp.img
+			;;
+		esac
+		mkdir -pv /tmp/bin/twrp
+		mv /tmp/bin/twrp.img /tmp/bin/twrp/twrp.img
+ 		dd if=/dev/block/by-name/boot$1 of=/tmp/bin/boot.img
+ 		cd /tmp/bin ; magiskboot unpack boot.img
+ 		rm -f ramdisk.cpio
+ 		cd /tmp/bin/twrp ; magiskboot unpack twrp.img
+ 		mv /tmp/bin/twrp/ramdisk.cpio /tmp/bin/ramdisk.cpio
+ 		cd /tmp/bin/ 
+ 		cpio ramdisk.cpio sha1
+ 		magiskboot repack boot.img
+ 		dd if=/tmp/bin/new-boot.img of=/dev/block/by-name/boot$1
+ 		rm -rf "twrp" "ramdisk*" "*.img" "kernel*"
+ 		retpop=40
+ 	else
+ 		ui_print "  -  $name_rec not finded"
+ 		retpop=41
+	fi
+	}	
+RUN_CHECK_ROM(){
+	if [ $(/tmp/bin/toybox df $home | awk ' NR==2 { if ($4 > 25843545) print "1" }') == "1" ] ; then 
+		ui_print "  -  Size normal"
+	else
+		ui_print "  -  Not enough free space"
+		exit 0
+	fi
+    romzip="$name_rom"
+    if find $zipfolder/$romzip ; then
+        ui_print "  -  $romzip find"
+        romzip="$zipfolder/$romzip"
+        if $( 7za l "$romzip" | grep -q payload.bin ) ; then 
+            ui_print "  -  Detected payload.bin"
+            if [[ $( stat -c%s $romzip ) -ge 3221225472 ]] ; then
+            return 55
+        	else
+        	return 51
+        	fi
+
+        elif $( 7za l "$romzip" | grep -q super.img ) && $( 7za l "$romzip" | grep -q system.img ) && $( 7za l "$romzip" | grep -q vendor.img ); then
+            ui_print "  -  Detected fastboot rom"
+            return 52
+        elif $( 7za l "$romzip" | grep -q super.img ); then
+            ui_print "  -  Detected fastboot with super.img rom"
+            return 53
+        elif $( 7za l "$romzip" | grep -q system.img ) && $( 7za l "$romzip" | grep -q vendor.img ); then
+            ui_print "  -  Detected fastboot rom"
+            return 52
+        elif $( 7za l "$romzip" | grep -q system.new.dat ) || $( 7za l "$romzip" | grep -q system.new.dat.br ); then
+            ui_print "  -  Detected miui style rom"
+            return 54
+        fi
+    else 
+        ui_print "  -  $romzip not find"
+        exit 0
+    fi
+
+	}
+RUN_SINGL_STRUCTURES(){
+	ui_print "  -  Starting SINGL STRUCTURES"
+	ui_print "  -  Unpack $romzip"
+	if [[ $1 == "54" ]] ; then 
+		7za e "$romzip" -o$home/newdat/ "*.new.dat*" -y -r -mmt8
+		7za e "$romzip" -o$home/newdat/ "*.transfer.list" -y -r -mmt8
+		7za e "$romzip" -o$home/newdat/ "*.img" -y -r -mmt8
+		for fwimgs in $( find $home/newdat/*.img ) ; do
+	        mv $fwimgs $home/fw/
+	    done
+	    for imgs in $( find $home/newdat/*new.dat.br ) ; do
+	    	ui_print "  -  Convert $( basename $imgs )"
+	        brotli -df $imgs -o ${imgs%.br*} && rm -f $imgs
+	    done
+	    for imgs in $( find $home/newdat/*new.dat ) ; do
+	    	ui_print "  -  Convert $( basename $imgs )"
+	        sdat2img ${imgs%.new.dat*}.transfer.list $imgs ${imgs%.new.dat*}$newslot.img
+	    done
+	    for cust in $( find $home/newdat/cust*.img); do
+	    	mv $cust $home/fw/cust.img
+	    done
+		for imgs in $( find $home/newdat/*.img ) ; do
+	        mv $imgs $home/imgs/
+	    done
+	    rm -f $home/newdat/*
+
+	elif [[ $1 == "53" ]] ; then
+		7za e "$romzip" -o$home/super/ "*.img" -y -r -mmt8
+	    if ( file $home/super/super.img | grep -q sparse ) ; then 
+	    simg2img $home/super/super.img $home/super/super.row.img
+	    rm $home/super/super.img
+	    mv $home/super/super.row.img $home/super/super.img
+	    fi
+	    lpunpack $home/super/super.img $home/super/
+	    for imgs in system_ext_a system_a vendor_a product_a odm_a ; do
+	        for imgsp in $( find $home/super/$imgs*.img ) ; do 
+	        if [[ $( stat -c%s $imgsp ) -ge 50 ]] ; then
+	            mv $imgsp $home/imgs/${imgs%_*}$newslot.img
+	        else
+	            rm -f $imgsp
+	        fi
+	        done
+	    done
+	    rm $home/super/super.img
+	    for fwimgs in $( find $home/super/*.img ) ; do
+	        mv $fwimgs $home/fw/
+	    done
+	elif [[ $1 == "52" ]] ; then 
+		7za e "$romzip" -o$home/nonsuper/ "*.img" -y -r -mmt8
+	    for imgs in system_ext vendor system product odm ; do
+	        imgsp=$( find $home/nonsuper/$imgs* )
+	        mv $imgsp $home/imgs/${imgs}${newslot}.img
+	    done
+	    for fwimgs in $( find $home/nonsuper/*.img ) ; do
+	        mv $fwimgs $home/fw/
+	    done
+	    rm -f $home/fw/super.img
+	elif [[ $1 == "51" ]] ; then 
+		pydump -c 8 -o $home/payload/ "$romzip"
+	    for bootimgs in vendor_boot boot ; do  
+	        bootimgsp=$( find $home/payload/$bootimgs*.img )
+	        mv $bootimgsp $home/fw/
+	    done
+	    for imgs in system_ext system vendor product odm ; do
+
+	        imgsp=$( find $home/payload/$imgs*.img )
+	        ui_print "  -  Move $imgsp"
+	        mv $imgsp $home/imgs/${imgs}$newslot.img
+	    done
+	    for fwimgs in $( find $home/payload/*.img ) ; do
+	        mv $fwimgs $home/fw/
+	    done
+	elif [[ $1 == "55" ]] ; then 
+		7za e "$romzip" -o$home/ "payload.bin" -y -r -mmt8
+		pydump -c 8 -o $home/payload/ "$home/payload.bin"
+		rm -f $home/payload.bin
+	    for bootimgs in vendor_boot boot ; do  
+	        bootimgsp=$( find $home/payload/$bootimgs*.img )
+	        mv $bootimgsp $home/fw/
+	    done
+	    for imgs in system_ext system vendor product odm ; do
+
+	        imgsp=$( find $home/payload/$imgs*.img )
+	        ui_print "  -  Move $imgsp"
+	        mv $imgsp $home/imgs/${imgs}$newslot.img
+	    done
+	    for fwimgs in $( find $home/payload/*.img ) ; do
+	        mv $fwimgs $home/fw/
+	    done
+	fi
+	
+
+	}
+RUN_MAKE_SUPER(){
+	ui_print "  -  Make new super partition"
+    ms=$(grep -F "Metadata max size:" $LPDUMP | awk '{print $4}')
+    mslot=$(grep -F "Metadata slot count:" $LPDUMP | awk '{print $NF}')
+    Ss=$( grep -F "Size:" $LPDUMP | awk '{print $2}' )
+    gp=$( grep -F "part" $LPDUMP | grep -F "Name" | grep -F "$newslot"| awk '{print $NF}' )
+    partadd=$(  for img in $(find $home/imgs/*.img) ; do
+                    bimg=$(basename ${img})
+                    part_ab=${bimg//.*}
+                    img_size=$(stat -c%s $img)
+                    [ -z $gp ] && echo -n "--partition ${part_ab}:none:$img_size:qti_dynamic_partitions$newslot "
+                    [ -z $gp ] || echo -n "--partition ${part_ab}:none:$img_size:$gp "
+                    echo -n "--image ${part_ab}=$img "
+                done
+         )
+    [ -z $gp ] || echo "--metadata-size $ms --super-name super --sparse --metadata-slots $mslot --device super:$Ss --group $gp:$Ss $partadd --output $home/newsuper.img" >> $home/argslp.txt
+    [ -z $gp ] && echo "--metadata-size $ms --super-name super --sparse --metadata-slots $mslot --device super:$Ss --group qti_dynamic_partitions$newslot:$Ss $partadd --output $home/newsuper.img" >> $home/argslp.txt
+    ui_print "  -  Creation of newsuper.img. For OTG process very long 40-50 minutes. Please wait..."
+    lpmake $(cat "$home/argslp.txt") && retpop=40 || retpop=41
+
+	}
+RUN_INIT_PATCH(){
+	gon=false
+    finit=$(grep -n -x "on init" $1/system/etc/init/hw/init.rc | awk '{print int($1)}')
+    RUN_CHECK_RW $1/system/etc 
+    if [[ $? == 40 ]] ; then
+        floop=false 
+        while [ $floop == false ] ; do
+            finit=$( expr $finit + 1 )
+            r=$(head -n$finit $1/system/etc/init/hw/init.rc | tail -n1)
+            [[ -z $r ]] && break
+        done 
+        grep "ro.crypto.state" $1/system/etc/init/hw/init.rc && sed -i '/ro.crypto.state/d' $1/system/etc/init/hw/init.rc && gon=true && sed -i "${finit}i \    setprop ro.crypto.state encrypted" $1/system/etc/init/hw/init.rc
+        ! $gon && sed -i "${finit}i \   setprop ro.crypto.state encrypted" $1/system/etc/init/hw/init.rc
+    else
+        ui_print "  -  Something wrong: error 12"
+        exit 0
+    fi
+	}
+RUN_BOOT_PATCH(){
+	ui_print "  -  Starting boot patching"
+	dd if=/dev/block/by-name/boot$1 of=/tmp/bin/boot.img
+	cd /tmp/bin
+	magiskboot unpack boot.img
+	magiskboot cpio ramdisk.cpio patch
+	for dt in dtb kernel_dtb extra kernel; do
+		[ -f $dt ] && magiskboot dtb $dt patch 
+	done
+	if [ -f kernel ]; then
+		magiskboot hexpatch kernel 49010054011440B93FA00F71E9000054010840B93FA00F7189000054001840B91FA00F7188010054 A1020054011440B93FA00F7140020054010840B93FA00F71E0010054001840B91FA00F7181010054
+		magiskboot hexpatch kernel 821B8012 E2FF8F12
+		magiskboot hexpatch kernel 736B69705F696E697472616D667300 77616E745F696E697472616D667300
+	fi
+	magiskboot repack boot.img
+	dd if=/tmp/bin/new-boot.img of=/dev/block/by-name/boot$1
+	rm -rf "twrp" "ramdisk*" "*.img" "kernel*"
+
+	}
+RUN_VENDORBOOT_PATCH(){
+	ui_print "  -  Starting vendor_boot patch"
+	mkdir -pv /tmp/bin/vendor_boot
+	dd if=/dev/block/by-name/vendor_boot$newslot of=/tmp/bin/vendor_boot/boot.img
+	cd /tmp/bin/vendor_boot
+	magiskboot unpack -h boot.img
+	grep "androidboot.verifiedbootstate=green" header && sed -i 's|androidboot.verifiedbootstate=green||' header
+	grep "androidboot.vbmeta.device_state=locked" header && sed -i 's|androidboot.vbmeta.device_state=locked||' header
+	magiskboot repack boot.img vendor_boot.img
+	dd if=/tmp/bin/vendor_boot/vendor_boot.img of=/dev/block/by-name/vendor_boot$newslot
+	cd /tmp/bin
+	rm -rf "vendor_boot"
+
+	}
+RUN_FW_FLASH(){
+	ui_print "  -  Starting Flashing FW"
+	for fw in $( find $home/fw/*img $home/boot/*img ) ; do
+        fwname=$( basename ${fw%.img*} )
+        ui_print "  -  Flashing $fwname"
+        dd if=$fw of=/dev/block/by-name/$fwname$newslot
+    done
+    }
+RUN_RECOVERY_FLASH_SM8250(){
+	ui_print "  -  Starting Flashing twrp vashy for SM8250"
+	dd if=/dev/block/by-name/boot$1 of=/tmp/bin/boot.img
+	cd /tmp/bin ; magiskboot unpack boot.img
+	rm -f ramdisk.cpio
+	cp /tmp/twrp/twrp.cpio /tmp/bin/ramdisk.cpio
+	cd /tmp/bin/ 
+	cpio ramdisk.cpio sha1
+	magiskboot repack boot.img
+	dd if=/tmp/bin/new-boot.img of=/dev/block/by-name/boot$1
+	rm -rf "twrp" "ramdisk*" "*.img" "kernel*"
+	}
+RUN_DUMP_PART(){
+	if [ $(/tmp/bin/toybox df $home | awk ' NR==2 { if ($4 > 15843545) print "1" }') == "1" ] ; then 
+		ui_print "  -  Size normal"
+	else
+		ui_print "  -  Not enough free space"
+		exit 0
+	fi
+	ui_print "  -  Starting dumping partition"
+	for part in $(find /dev/block/mapper/*$newslot) ; do
+		ui_print "  -  Dumpimg $(basename $part)" 
+		dd if=$part of=$home/imgs/$(basename $part).img
+	done
+	}
+RUN_DFE_RW_IN_SUPER(){
+		if $flashrw ; then
+			RUN_ALL_RW
+		fi
+		if $flashdfe ; then
+		ui_print "  -  test1"
+		RUN_MOUNT_IMG "$home/imgs/vendor$newslot.img"
+		if [[ $retpop == 41 ]] ; then
+			ui_print "  -  test2"
+			RUN_RW "$home/imgs/vendor$newslot.img" 
+			RUN_RWS "$home/imgs/vendor$newslot.img" "20971520" 
+			RUN_MOUNT_IMG "$home/imgs/vendor$newslot.img" 
+			if [[ $retpop == 41 ]] ; then 
+				ui_print "  -  Something wrong: error 01"
+				exit 0
+			else
+				ui_print "  -  test3"
+				RUN_CHECK_RW "/tmp/$mountimgN/etc"
+				if [[ $retpop == 41 ]] ; then
+					ui_print "  -  test4"
+					RUN_RW "$home/imgs/vendor$newslot.img" 
+					RUN_RWS "$home/imgs/vendor$newslot.img" "20971520" 
+					RUN_MOUNT_IMG "$home/imgs/vendor$newslot.img"
+					[[ $retpop == 40 ]] && RUN_CHECK_RW "/tmp/$mountimgN/etc"
+					[[ $retpop == 40 ]] && RUN_DFE "/tmp/$mountimgN" && umount "/tmp/$mountimgN" || exit 0 
+				else
+					ui_print "  -  test5"
+					RUN_DFE "/tmp/$mountimgN"
+					umount "/tmp/$mountimgN"
+				fi
+			fi
+		elif [[ $retpop == 40 ]]; then
+			ui_print "  -  test11"
+			RUN_CHECK_RW "/tmp/$mountimgN/etc"
+			if [[ $retpop == 41 ]] ; then
+				ui_print "  -  test12"
+				RUN_RW "$home/imgs/vendor$newslot.img" 
+				RUN_RWS "$home/imgs/vendor$newslot.img" "20971520" 
+				RUN_MOUNT_IMG "$home/imgs/vendor$newslot.img"
+				[[ $retpop == 40 ]] && RUN_CHECK_RW "/tmp/$mountimgN/etc"
+				[[ $retpop == 40 ]] && RUN_DFE "/tmp/$mountimgN" && umount "/tmp/$mountimgN" || exit 0 
+			else
+				ui_print "  -  test13"
+				RUN_DFE "/tmp/$mountimgN"
+				umount "/tmp/$mountimgN"
+			fi
+		fi 
+	fi
+
+	if $sm8250 ; then
+		RUN_MOUNT_IMG "$home/imgs/system$newslot.img"
+		if [[ $retpop == "41" ]] ; then
+			RUN_RW "$home/imgs/system$newslot.img" 
+			RUN_RWS "$home/imgs/system$newslot.img" "20971520" 
+			RUN_MOUNT_IMG "$home/imgs/system$newslot.img" 
+			if [[ $retpop == "41" ]] ; then 
+				ui_print "  -  Something wrong: error 01"
+				exit 0
+			else
+				RUN_CHECK_RW "/tmp/$mountimgN/etc"
+				if [[ $retpop == "41" ]] ; then
+					RUN_RW "$home/imgs/system$newslot.img" 
+					RUN_RWS "$home/imgs/system$newslot.img" "20971520" 
+					RUN_MOUNT_IMG "$home/imgs/system$newslot.img"
+					[[ $retpop == 40 ]] && RUN_INIT_PATCH "/tmp/$mountimgN" && umount "/tmp/$mountimgN" || exit 0 
+				else
+					RUN_INIT_PATCH "/tmp/$mountimgN"
+					umount "/tmp/$mountimgN"
+				fi
+			fi
+		else
+			RUN_CHECK_RW "/tmp/$mountimgN/etc"
+			if [[ $retpop == "41" ]] ; then
+				RUN_RW "$home/imgs/system$newslot.img" 
+				RUN_RWS "$home/imgs/system$newslot.img" "20971520" 
+				RUN_MOUNT_IMG "$home/imgs/system$newslot.img"
+				[[ $retpop == 40 ]] && RUN_INIT_PATCH "/tmp/$mountimgN" && umount "/tmp/$mountimgN" || exit 0 
+			else
+				RUN_INIT_PATCH "/tmp/$mountimgN"
+				umount "/tmp/$mountimgN"
+			fi
+		fi 
+	fi
+	RUN_MAKE_SUPER
+	
+
+	}
+RUN_CHECK_PART(){
+
+	if [[ -f $home/imgs/product$newslot.img ]] && [[ -f $home/imgs/system_ext$newslot.img ]] ; then 
+		ui_print "  -  fine part"
+	else
+		flashmagisk=false
+	fi
+
+	}
+RUN_FLASH_KERNEL(){
+	if find $zipfolder/$name_ker ; then
+		mk] -pv /tmp/bin/ker 
+		7za e "$zipfolder/$name_ker" -o/tmp/bin/ker "update-binary" -y -r -mmt8
+		if [[ $slot_ab == $newslot ]] ; then
+			sh /tmp/bin/ker/update-binary $arg1 $arg2 "$zipfolder/$name_ker"
+		else
+			dd if=/dev/block/by-name/boot$newslot of=/dev/block/by-name/boot$slot_ab
+			sh /tmp/bin/ker/update-binary $arg1 $arg2 "$zipfolder/$name_ker"
+			dd if=/dev/block/by-name/boot$slot_ab of=/dev/block/by-name/boot$newslot
+		fi
+	else
+		ui_print "  -  $name_ker not finded"
+	fi
+	}
+RUN_SIMG2IMG(){
+
+	for img in $( find $home/imgs/*.img $home/fw/*.img ); do
+		if  [[ $( file $img | grep "sparse" ) ]] ; then
+			ui_print "  -  simg2img $( basename $img )"
+			simg2img $img $( dirname $img )/$( basename ${img%.img*} ).raw.img
+			rm -f $img ; mv $( dirname $img )/$( basename ${img%.img*} ).raw.img $img
+		fi
+	done
+
+	}
+
+
+if $flashrom ; then 
+
+	RUN_CHECK_ROM
+	RUN_SINGL_STRUCTURES $?
+	RUN_SIMG2IMG 
+	RUN_DFE_RW_IN_SUPER
+	RUN_CHECK_PART
+
+	if [[ $retpop == 40 ]] ; then
+		$reflashrec && dd if=/dev/block/by-name/boot$slot_ab of=/tmp/bin/twrp.img
+		RUN_FW_FLASH 
+		if $flashrec ; then 
+			if $sm8250 ; then 
+				RUN_RECOVERY_FLASH_SM8250 $newslot
+			else 
+				RUN_RECOVERY_FLASH $newslot
+			fi
+		elif $reflashrec ; then
+			if $sm8250 ; then 
+				RUN_RECOVERY_FLASH_SM8250 $newslot
+			else 
+				RUN_RECOVERY_REFLASH $newslot
+			fi
+		fi
+
+		if $flashmagisk ; then
+			RUN_MAGISK
+		else
+			RUN_BOOT_PATCH $newslot
+		fi
+		RUN_VENDORBOOT_PATCH $newslot
+
+
+		ui_print "  -  Flashing new super partition. For OTG process very long 40-50 minutes. Please wait..."
+		simg2img $home/newsuper.img /dev/block/by-name/super
+		RUN_FINAL
+	else
+		ui_print "  -  Something went wrong. Send recovery.log to developer on TG @LeeGarChat"
+		exit 0
+	fi
+elif ! $flashrom ; then
+
+	umount /vendor
+mount /vendor
+mount -o rw,remount /vendor 
+	RUN_CHECK_RW "/vendor/etc"
+	if [[ $retpop == 40 ]] ; then
+		ui_print "  -  ss12"
+		RUN_DFE "/vendor"
+	elif [[ $retpop == 41 ]] ; then
+		ui_print "  -  ss13"
+		RUN_RW_LITE "vendor$newslot"
+		umount /vendor
+mount /vendor
+mount -o rw,remount /vendor 
+		RUN_CHECK_RW "/vendor/etc"
+		if [[ $retpop == 40 ]] ; then 
+			ui_print "  -  ss14"
+			RUN_DFE "/vendor"
+		elif [[ $retpop == 41 ]] ; then
+			RUN_DUMP_PART
+			RUN_DFE_RW_IN_SUPER
+			if [[ $retpop == 40 ]] ; then
+				if $flashrec ; then 
+					if $sm8250 ; then 
+						ui_print "  -  Patching flash recovery for SM8250"
+						RUN_RECOVERY_FLASH_SM8250 $newslot
+					else 
+						ui_print "  -  Patching flash recovery"
+						RUN_RECOVERY_FLASH $newslot
+					fi
+				fi
+
+				if $flashmagisk ; then
+					ui_print "  -  Patching with magisk"
+					RUN_MAGISK
+				else
+					ui_print "  -  Patching boot"
+					RUN_BOOT_PATCH $newslot
+				fi
+				ui_print "  -  Patching vendor_boot"
+				RUN_VENDORBOOT_PATCH $newslot
+
+
+				ui_print "  -  Flashing new super partition. For OTG process very long 40-50 minutes. Please wait..."
+				simg2img $home/newsuper.img /dev/block/by-name/super
+				RUN_FINAL
+			elif [[ $retpop == 41 ]] ; then
+				ui_print "  -  Something went wrong. Send recovery.log to developer on TG @LeeGarChat"
+				exit 0
+			fi
+		fi
+	fi
+
+	if $sm8250 ; then 
+		mount -o rw,remount /system_root 
+		RUN_CHECK_RW "/system_root/system/etc"
+		if [[ $retpop == 40 ]] ; then 
+			RUN_INIT_PATCH "/system_root"
+		else 
+			ui_print "  -  Something wrong: error 41"
+		fi
+	fi
+	if $flashrec ; then 
+		if $sm8250 ; then 
+			ui_print "  -  Patching flash recvoery for SM8250"
+			RUN_RECOVERY_FLASH_SM8250 $newslot
+		else 
+			ui_print "  -  Patching flash recvoery"
+			RUN_RECOVERY_FLASH $newslot
+		fi
+	fi
+
+	if $flashmagisk ; then
+		ui_print "  -  Patching boot with magisk"
+		RUN_MAGISK
+	else
+		ui_print "  -  Patching boot"
+		RUN_BOOT_PATCH $newslot
+	fi
+	ui_print "  -  Patching vendor_boot"
+	RUN_VENDORBOOT_PATCH $newslot
+	RUN_FINAL
+
+fi
+
+
+
+exit 0
