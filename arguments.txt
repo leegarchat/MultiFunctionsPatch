@@ -6,10 +6,22 @@ Arguments             PARAMETRS ( example "yes" or "no" )
 
 MAKERW                "no"
 DFE                   "no"
+
 RECOVERY REFLASH      "no"
 FLASH RECOVERY        "no"
 FLASH ROM             "no"
 FLASH ADDITIONAL ZIPS "no"
+
+REMOVE MFPAPP FOLDER  "no"
+WIPE DATA             "no"
+
+
+##################################################################################################
+
+Basic Arguments for slot
+Arguments              PARAMETRS ( example "system" or "recovery" or "bootloader" or "nothing" )
+
+REBOOT AFTER          "nope"
 
 
 ##################################################################################################

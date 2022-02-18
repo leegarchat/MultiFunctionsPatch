@@ -1,4 +1,4 @@
-#!/sbin/sh
+#!/sbin/bash
 
 #Объявление основых переменных и постоянных функций
 export OUTFD=$2
@@ -11,7 +11,7 @@ set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-BETA-4.1.8"
+MFPAPP="MFP-BETA-4.1.9"
 
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
@@ -41,6 +41,9 @@ else
 		home="/usb_otg/MFPAPP" 
 	else 
 		ui_print "-  Need OTG or mounted /sdcard/ for stable working" 
+		cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
 		exit 66
 	fi
 fi
@@ -79,6 +82,8 @@ RUN_READ_ARG(){
 
 	( grep "WIPE DATA" "$arguments" | grep -i "yes" ) && wipedata=true || wipedata=false
 
+	( grep "REMOVE MFPAPP FOLDER" "$arguments" | grep -i "yes" ) && delhome=true || delhome=false
+
 	if ( grep "REBOOT AFTER" "$arguments" | grep -i "system" ) ; then
 		rebootafter=true 
 		rebootARG=system
@@ -99,13 +104,17 @@ RUN_READ_ARG(){
 			if ( echo $name_rom | grep "/" ) ; then romzip=$name_rom
 			else romzip="$zipfolder/$name_rom" ; fi
 			if [[ -f $romzip ]] ; then flashrom=true
-			else ui_print "-  Not find $romzip" ; exit 147 ; fi ; fi
+			else ui_print "-  Not find $romzip" ; cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
+		exit 147 ; fi ; fi
 	else flashrom=false ; fi
 
 	if ( grep "FLASH ADDITIONAL ZIPS" "$arguments" | grep -i "yes" ) ; then
 		for list in $( grep -i "Path additional zips" "$arguments" ) ; do 
 			list=$( echo "$list" | grep -q "\.zip" && echo $list ; echo "$list" | grep -q "\.apk" && echo $list ) 
 			name_ADDzip=${list#*\"} ; name_ADDzip=${name_ADDzip%%\"*}
+			( echo ${name_ADDzip%Path additional zips*} | grep '#' ) && continue
 			if [[ -z $name_ADDzip ]] ; then 
 				continue 
 			else
@@ -117,7 +126,10 @@ RUN_READ_ARG(){
 				if [[ -f $ADDzip ]] ; then 
 					listADDzip="$listADDzip\n$ADDzip"
 				else ui_print "-  Not find $ADDzip" 
-					exit 149 
+					cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
+		exit 149 
 				fi 
 			fi
 		done
@@ -131,7 +143,10 @@ RUN_READ_ARG(){
 			if ( echo $name_rec | grep "/" ) ; then reczip=$name_rec
 			else reczip="$zipfolder/$name_rec" ; fi
 			if [[ -f $reczip ]] ; then flashrec=true
-			else ui_print "-  Not find $reczip" ; exit 140 ; fi ; fi
+			else ui_print "-  Not find $reczip" ; cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
+		exit 140 ; fi ; fi
 	else flashrec=false ; fi
 
 	if ( grep "RECOVERY REFLASH" "$arguments" | grep -i "yes" ) ; then 
@@ -142,7 +157,10 @@ RUN_READ_ARG(){
 				cpio -H newc -o < /ramdisk-files.txt > /tmp/bin/twrp/ramdisk.cpio
 			else
 				ui_print "-  Ramdisk files have been modified, unable to create ramdisk to flash, fastboot boot twrp or reboot twrp and try again flash mfp with options RECOVERY REFLASH"
-				exit 99
+				cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
+		exit 99
 			fi
 		else reflashrec=false
 		fi
@@ -154,6 +172,9 @@ RUN_ARG_CHECK(){
 	if ! $flashrom && ! $flashrec && ! $flashdfe && ! $flashrw && ! $flashADDzip ; then 
 		ui_print "-  No arguments"
 		ui_print "- Copy .zip name in arguments.txt into .zip files or creat near .zip arguments.txt and rename fmp to ARGOUT-MFP.zip"
+		cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
 		exit 49
 	else
 		RUN_LOGO
@@ -179,6 +200,9 @@ RUN_LOGO(){
 	ui_print "-  FLASH RECOVERY: $( $flashrec && echo "YES" || echo NO )"
 	ui_print "-  FLASH ROM: $( $flashrom && echo "YES" || echo NO )"
 	ui_print "-  ADDITIONAL ZIPS: $( $flashADDzip && echo "YES" || echo "NO" )"
+	ui_print "-  WIPE DATA AFTER FLASHING: $( $wipedata && echo "YES" || echo "NO" )"
+	ui_print "-  REMOVE MFPAPP FOLDER AFTER FLASHING: $( $delhome && echo "YES" || echo "NO" )"
+	ui_print "-  REBOOT AFTER FLASHING: $( $rebootafter && echo "YES : $rebootARG" || echo "NO" )"
 	ui_print " "
 	if ! $flashADDzip && ! $flashrom && ! $flashrec ; then 
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------" ; fi
@@ -316,7 +340,10 @@ RUN_MOUNT_SUPER(){
 				RUN_ALL_MAUNT --umount
 			if [[ -z $block_system ]] ; then 
 				ui_print " Something wrong: error 221"
-				exit 221
+				cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
+		exit 221
 			else
 				umount /system_root ; umount /vendor ; umount /product ; umount /system_ext ; umount /odm
 				
@@ -329,7 +356,7 @@ RUN_MOUNT_SUPER(){
 				if $vendor_back ; then
 					sed -i 's|'$new_line_block_vendor'|'$line_block_vendor'|' /etc/fstab 
 				fi
-				if $product ; then
+				if $product_back ; then
 					sed -i 's|'$new_line_block_product'|'$line_block_product'|' /etc/fstab 
 				fi
 				if $odm_back ; then 
@@ -444,7 +471,10 @@ RUN_SINGL_STRUCTURES(){
 		    rm $home/newdatsuper/super.img
 		else
 			ui_print "-  Something wrong: error 62"
-			exit 62
+			cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
+		exit 62
 		fi
 	    rm -f $home/newdatsuper/*
 	elif [[ $1 == "53" ]] ; then
@@ -537,6 +567,9 @@ RUN_DUMP_PART(){
 		ui_print "-  Not enough free space"
 		ui_print "-  you have $( calc "$( /tmp/bin/toybox df $home | awk ' NR==2 { print $4 }' )/1024/1024" )GB"
 		ui_print "-  Need 15~gb free space"
+		cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
 		exit 101
 	fi
 	ui_print "-  Starting dumping partition"
@@ -568,7 +601,10 @@ RUN_CHECK_ROM(){
 			ui_print "-  Not enough free space"
 			ui_print "-  You have $( calc ""$( /tmp/bin/toybox df $home | awk ' NR==2 { print $4 }' )"/1024/1024" )GB"
 			ui_print "-  Need 24gb free space"
-			exit 101
+			cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
+		exit 101
 		fi
 		if [[ -f $romzip ]] && $flashrom ; then
 		    #ui_print "-  $romzip find"
@@ -607,7 +643,10 @@ RUN_CHECK_ROM(){
 		    fi
 		else 
 		    ui_print "-  $romzip not find"
-		    exit 105
+		    cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
+		exit 105
 		fi
 	}
 
@@ -649,7 +688,10 @@ RUN_DFE(){
 				# Фстаб ушел в 0
 				ui_print "-  Something wrong: error 89"
 				ui_print "-  You need reflash rom"
-				exit 89
+				cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
+		exit 89
 			fi
 		fi
 	done
@@ -733,23 +775,53 @@ RUN_FINAL(){
 		rm -f /data/system/storage.xml
 	fi
 	if $flashdfe ; then 
-			ui_print "-------******!!!!!!!!!!!!!!!!!!!!******------"
-			ui_print "---***|      Comlite decryption!      |***---"
-			ui_print "---*If you are encrypted, you need to do**---"
-			ui_print "---***|          Format data          |***---"
-			ui_print "-If you Decrypted and change the ROM, after--"
-			ui_print "-flashing the new ROM, you need to flash the-"
-			ui_print "----DFE again, you are also advised to do*---"
-			ui_print "---***|           Wipe Data           |***---"
-			ui_print "--If you are upgrading the ROM you need to---"
-			ui_print "---***|       flash the DFE again     |***---"
-			ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
+		ui_print "-------******!!!!!!!!!!!!!!!!!!!!******------"
+		ui_print "---***|      Comlite decryption!      |***---"
+		ui_print "---*If you are encrypted, you need to do**---"
+		ui_print "---***|          Format data          |***---"
+		ui_print "-If you Decrypted and change the ROM, after--"
+		ui_print "-flashing the new ROM, you need to flash the-"
+		ui_print "----DFE again, you are also advised to do*---"
+		ui_print "---***|           Wipe Data           |***---"
+		ui_print "--If you are upgrading the ROM you need to---"
+		ui_print "---***|       flash the DFE again     |***---"
+		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	fi
-			ui_print  "------******!!!!!!!!!!!!!!!!!!!!******-------"
-			ui_print  "------      Installing complited      -------"
-			ui_print  "------******!!!!!!!!!!!!!!!!!!!!******-------"
-	#rm -rf $home
-	exit 0 
+		ui_print  "------******!!!!!!!!!!!!!!!!!!!!******-------"
+		ui_print  "------      Installing complited      -------"
+		ui_print  "------******!!!!!!!!!!!!!!!!!!!!******-------"
+	cp /tmp/recovery.log $home/
+	cp /tmp/dmesg.log $home/
+	cp /tmp/logcat.log $home/
+	$delhome && rm -rf $home
+
+	if ( mountpoint -q /data ) ; then
+		if $wipedata ; then
+			ui_print "-  wiping data"
+			for del in $( ls -a /data ) ; do
+				if [[ $del == '.' ]] || [[ $del == '..' ]] || [[ $del == media ]] ; then
+					continue
+				else
+					rm -rf /data/$del
+				fi
+			done
+		fi
+	fi
+		
+		if $rebootafter ; then
+			ui_print "-  Rebooting to $rebootARG in 7 seconds..."
+			sleep 1 ; ui_print "-  7s..."
+			sleep 1 ; ui_print "-  6s..."
+			sleep 1 ; ui_print "-  5s..."
+			sleep 1 ; ui_print "-  4s..."
+			sleep 1 ; ui_print "-  3s..."
+			sleep 1 ; ui_print "-  2s..."
+			sleep 1 ; ui_print "-  1s..."
+			sleep 1 ; ui_print "-  0s..."
+			sleep 1
+			reboot $rebootARG
+		fi
+		exit 0 
 	}
 
 RUN_ALL_RW(){
@@ -780,7 +852,7 @@ RUN_ALL_RW(){
 	fi
 
 	#ui_print "-  $Ss $vs $ss $ps $sss $odms"
-	ssfree=$( calc "$Ss-$vs-8194304-$odms-$sss-$ss-$ps" )
+	ssfree=$( calc "$Ss-$vs-20971520-$odms-$sss-$ss-$ps" )
 	tfs=$( expr $ssfree / 1024 )
 	echo "  -  $ssfree $tfs"
 	if [ $tfs -gt 1 ] ; then
@@ -995,7 +1067,10 @@ RUN_ARG_CHECK
 
 if ( echo $( basename $romzip ) | grep '(' ) || ( echo $( basename $romzip ) | grep ')' ) ; then
 	ui_print "-  Remove \) or \( in rom name"
-	exit 77
+	cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
+		exit 77
 fi 
 LPDUMP="$home/lpdump.txt"
 lpdump --slot=$newslot >> $LPDUMP
@@ -1007,6 +1082,9 @@ else
 		rm -f $LPDUMP
 		lpdump --slot=$newslot >> $LPDUMP
 	else 
+		cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
 		exit 36
 	fi
 fi 
@@ -1045,7 +1123,10 @@ if ( [[ $permm == 41 ]] && ! $flashrom ) || ( $flashrw && ! $flashrom ) ; then
 				RUN_MOUNT_SUPER --umount-super
 				RUN_MOUNT_SUPER --umount-fw
 				ui_print "-  Something wrong: 21"
-				exit 21
+				cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
+		exit 21
 			fi ; fi ; fi
 [[ -f /vendor/etc/fstab.sm8250 ]] && sm8250=true || sm8250=false
 
@@ -1065,8 +1146,14 @@ if [[ $permm == 41 ]] || $flashrw || $flashrom ; then
 
 	else
 		ui_print "-  Something wrong: error 91"
+		cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
 		exit 91
 	fi
 fi
 RUN_FINAL
-exit 0
+cp /tmp/recovery.log $home/
+		cp /tmp/dmesg.log $home/
+		cp /tmp/logcat.log $home/
+		exit 0
