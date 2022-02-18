@@ -5,13 +5,13 @@ export OUTFD=$2
 
 arg1=$1 ; arg2=$2 ; arg3=$3
 
-ui_print(){ echo -e "ui_print $1" >> "/proc/self/fd/$arg2" ; }
+ui_print(){ echo -e "ui_print $1\nui_print" >> "/proc/self/fd/$arg2" ; }
 progress(){ echo -e "progress $1 $2" >> "/proc/self/fd/$arg2" ; }
 set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-ALPHA-4.1.2"
+MFPAPP="MFP-ALPHA-4.1.3b"
 
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
@@ -32,8 +32,14 @@ if ( /tmp/bin/toybox mountpoint -q /sdcard/ ) ; then
 home="/sdcard/MFPAPP" 
 ui_print "-  Home folder $home"
 elif ( /tmp/bin/toybox mountpoint -q /data/ ) ; then
-home="/data/media/0/MFPAPP"
-ui_print "-  Home folder $home"
+	mount /data/media/0 /sdcard
+	if ( /tmp/bin/toybox mountpoint -q /sdcard/ ) ; then
+		home="/sdcard/MFPAPP" 
+		ui_print "-  Home folder $home"
+	else
+		home="/data/media/0/MFPAPP"
+		ui_print "-  Home folder $home"
+	fi
 else
 if ( /tmp/bin/toybox mountpoint -q /usb_otg/ ) ; then 
 	home="/usb_otg/MFPAPP" 
@@ -46,7 +52,7 @@ fi
 rm -rf $home
 
 
-sm8250=false ; extsuper=false
+sm8250=false ; extsuper=false ; nam_device=190 ; extfw=false
 mkdir -pv $home ; mkdir -pv $home/payload
 mkdir -pv $home/imgs ; mkdir -pv $home/super ; mkdir -pv $home/nonsuper 
 mkdir -pv $home/newdatsuper ; mkdir -pv $home/fw ; mkdir -pv $home/newdat
@@ -159,10 +165,11 @@ RUN_LOGO(){
 	ui_print " "
 	}
 
-RUN_MOUNT_SUPER(){ bakblock="/dev/block/backup/"
+RUN_MOUNT_SUPER(){ 
+	bakblock="/dev/block/backup/"
 
 	case $1 in
-		--mount)
+		--mount-super)
     if ! $extsuper ; then
 	umount /system_root ; umount /vendor ; umount /product ; umount /system_ext ; umount /odm
 	block_system=$( grep "/system_root" /etc/fstab | awk '{ print $1 }' )
@@ -172,24 +179,49 @@ RUN_MOUNT_SUPER(){ bakblock="/dev/block/backup/"
 	block_odm=$( grep "/odm" /etc/fstab | awk '{ print $1 }' )
 
 	for img in $block_system $block_system_ext $block_vendor $block_product $block_odm ; do 
-		mv $img $bakblock
+		mv $img "${img}.bak"
 	done
-	loop_system=$( losetup -f )
+
+
+	loop_system=$( losetup -f ) #/dev/block/fake-system ; nam_device=$( calc $nam_device+10 )
+	#mknod $loop_system b 7 $nam_device
 	losetup $loop_system $home/imgs/system$newslot.img
-	mv $loop_system $block_system
-	loop_vendor=$( losetup -f )
+	ln -s $loop_system $block_system
+
+
+	loop_vendor=$( losetup -f ) #/dev/block/fake-vendor ; nam_device=$( calc $nam_device+10 )
+	#mknod $loop_vendor b 7 $nam_device
 	losetup $loop_vendor $home/imgs/vendor$newslot.img
-	mv $loop_vendor $block_vendor
-	loop_system_ext=$( losetup -f )
-	losetup $loop_system_ext $home/imgs/system_ext$newslot.img
-	mv $loop_system_ext $block_system_ext
-	loop_product=$( losetup -f )
-	losetup $loop_product $home/imgs/product$newslot.img
-	mv $loop_product $block_product
-	loop_odm=$( losetup -f )
-	losetup $loop_odm $home/imgs/odm$newslot.img
-	mv $loop_odm $block_odm
-	dd if=/dev/block/by-name$slot_ab if=/tmp/bin/twrp.img
+	ln -s $loop_vendor $block_vendor
+
+	if [[ -f $home/imgs/system_ext$newslot.img ]] ; then
+		loop_system_ext=$( losetup -f ) #/dev/block/fake-system-ext ; nam_device=$( calc $nam_device+10 )
+		#mknod $loop_system_ext b 7 $nam_device 
+		losetup $loop_system_ext $home/imgs/system_ext$newslot.img
+		ln -s $loop_system_ext $block_system_ext
+	fi
+
+	if [[ -f $home/imgs/product$newslot.img ]] ; then
+		loop_product=$( losetup -f ) #/dev/block/fake-product ; nam_device=$( calc $nam_device+10 )
+		#mknod $loop_product b 7 $nam_device
+		losetup $loop_product $home/imgs/product$newslot.img
+		ln -s $loop_product $block_product
+	fi
+
+	if [[ -f $home/imgs/odm$newslot.img ]] ; then
+		loop_odm=$( losetup -f ) #/dev/block/fake-odm ; nam_device=$( calc $nam_device+10 )
+		#mknod $loop_odm b 7 $nam_device
+		losetup $loop_odm $home/imgs/odm$newslot.img
+		ln -s $loop_odm $block_odm
+	fi
+	extsuper=true
+    fi
+	;;
+	--mount-fw)
+	if ! $extfw ; then
+	if $reflashrec ; then
+		dd if=/dev/block/by-name$slot_ab if=/tmp/bin/twrp.img
+	fi
 	for fwimg in $( find $home/fw/*.img ) ; do
 		[[ -d /dev/block/backup ]] || mkdir /dev/block/backup
 		bakblock="/dev/block/backup/"
@@ -203,33 +235,40 @@ RUN_MOUNT_SUPER(){ bakblock="/dev/block/backup/"
 			fi
 		done
 	done
-	extsuper=true
+	extfw=true
     fi
+	
 			;;
-			--umount ) 
+			--umount-super) 
 			if $extsuper ; then 
+				RUN_ALL_MAUNT --umount
 			if [[ -z $block_system ]] ; then 
 				ui_print " Something wrong: error 221"
 				exit 221
 			else
 				umount /system_root ; umount /vendor ; umount /product ; umount /system_ext ; umount /odm
-				mv $block_odm $loop_odm
-				mv $block_system $loop_system
-				mv $block_product $loop_product
-				mv $block_system_ext $loop_system_ext
-				mv $block_vendor $loop_vendor
 				for img in $block_system $block_system_ext $block_vendor $block_product $block_odm ; do 
-					mv $bakblock$( basename $img ) $img
+					rm $img
+					mv ${img}.bak $img
 				done
+				# for img in $loop_system $loop_system_ext $loop_vendor $loop_product $loop_odm ; do 
+				# 	rm $img
+				# done 
 			fi
+			extsuper=false
+            fi
+            ;;
+            --umount-fw)
+			if $extfw ; then 
 			for fwimg in $( cat $home/list_block.txt ) ; do
 				bakblock="/dev/block/backup/"
 				rm -f ${fwimg#*LOLLOLLOLFACK}
 				dd if="${fwimg%LOLLOLLOLFACK*}" of="${fwimg#*LOLLOLLOLFACK}"
 				dd if=$bakblock$( basename ${fwimg%LOLLOLLOLFACK*} ) of="${fwimg%LOLLOLLOLFACK*}"
+			
 			done
-			extsuper=false
-            fi
+			extfw=false
+			fi
 			;;	 
 	esac
 	}
@@ -725,8 +764,8 @@ RUN_RECOVERY_FLASH(){
 RUN_INIT_PATCH(){
 	gon=false
 	finit=$(grep -n -x "on init" $1/system/etc/init/hw/init.rc | awk '{print int($1)}')
-	RUN_CHECK_RW $1/system/etc 
-	if [[ $retpop == 40 ]] ; then
+	RUN_CHECK_RW ; suckinit=$?
+	if [[ $suckinit == 40 ]] ; then
 	    floop=false 
 	    while [ $floop == false ] ; do
 	        finit=$( expr $finit + 1 )
@@ -832,6 +871,7 @@ RUN_RW_LITE(){
 	}
 
 RUN_FLASH_ZIPS(){
+
 	for install in $( echo -e "$listADDzip" ) ; do
 		mkdir -pv /tmp/addzip/$( basename ${install%.zip*} )
 		unzip -o "$install" "META-INF/com/google/android/update-binary" -d /tmp/addzip/$( basename ${install%.zip*} )/
@@ -843,15 +883,18 @@ RUN_FLASH_ZIPS(){
 		ui_print "************************************"
 		ui_print "************************************"
 		chmod 777 /tmp/addzip/$( basename ${install%.zip*} )/META-INF/com/google/android/update-binary
+		RUN_ALL_MAUNT --umount
+		RUN_MOUNT_SUPER --umount-super
+		RUN_MOUNT_SUPER --mount-super
 		/tmp/addzip/$( basename ${install%.zip*} )/META-INF/com/google/android/update-binary $arg1 $arg2 "$install"		
 	done
 		ui_print "************************************"		
 		ui_print "************************************"
 		ui_print "------------------------------------"
 		ui_print "-  Complect installing all additional zips "
+		ui_print "------------------------------------"
 		ui_print "************************************"		
 		ui_print "************************************"
-		ui_print "------------------------------------"
 	}
 
 
@@ -860,7 +903,7 @@ case $zipname in
 		arguments=$zipfolder/arguments.txt
 		;;
 		   *)	
-		unzip -o "$install" "arguments.txt" -d /tmp/lib/
+		unzip -o "$zipname" "arguments.txt" -d /tmp/lib/
 		arguments=/tmp/lib/arguments.txt
 		;;
 esac
@@ -887,35 +930,39 @@ if $flashrom || $flashADDzip ; then
 		RUN_ALL_RW
 	fi
 	RUN_ALL_MAUNT --umount
-	RUN_MOUNT_SUPER --mount
+	RUN_MOUNT_SUPER --mount-super
+	RUN_MOUNT_SUPER --mount-fw
 fi
 	
 RUN_ALL_MAUNT --mount ; RUN_CHECK_RW ; perm=$? 
 if [[ $perm == 41 ]] ; then 
-	if ! $flashrom ; then 
+	if ! $flashrom && ! $flashADDzip ; then 
 		RUN_RW_LITE ; RUN_ALL_MAUNT --mount ; RUN_CHECK_RW ; permm=$? ; perm=$permm
 	fi ; fi
 if ( [[ $permm == 41 ]] && ! $flashrom ) || ( $flashrw && ! $flashrom ) ; then 
 	RUN_ALL_MAUNT --umount
 	RUN_DUMP_PART
 	RUN_ALL_RW
-	RUN_MOUNT_SUPER --mount
+	RUN_MOUNT_SUPER --mount-super
+	RUN_MOUNT_SUPER --mount-fw
 	RUN_ALL_MAUNT --mount
 	RUN_CHECK_RW ; perm=$? 
 	if [[ $perm == 41 ]] ; then 
 		RUN_ALL_MAUNT --umount
-		RUN_MOUNT_SUPER --umount
+		RUN_MOUNT_SUPER --umount-super
+		RUN_MOUNT_SUPER --umount-fw
 		ui_print "-  Something wrong: 21"
 		exit 21
 	fi ; fi
 [[ -f /vendor/etc/fstab.sm8250 ]] && sm8250=true || sm8250=false
 
 $flashdfe && RUN_DFE "/vendor"
-$sm8250 && RUN_INIT_PATCH /system_root/system
+$sm8250 && RUN_INIT_PATCH
 RUN_POST_PATCH
 $flashADDzip && RUN_FLASH_ZIPS
 RUN_ALL_MAUNT --umount
-RUN_MOUNT_SUPER --umount
+RUN_MOUNT_SUPER --umount-super
+RUN_MOUNT_SUPER --umount-fw
 if [[ $permm == 41 ]] || $flashrw || $flashrom ; then
 	RUN_MAKE_SUPER
 	if [[ $retpop == 40 ]] ; then 
