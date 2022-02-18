@@ -1,8 +1,8 @@
-####################################################################
-####################################################################
+##################################################################################################
+##################################################################################################
 
 Basic Patch Arguments
-Arguments             PARAMETRS ( "yes" or "no" )
+Arguments             PARAMETRS ( example "yes" or "no" )
 
 MAKERW                "no"
 DFE                   "no"
@@ -11,21 +11,63 @@ FLASH MAGISK          "no"
 FLASH RECOVERY        "no"
 FLASH ROM             "no"
 FLASH KERNEL          "no"
+FLASH FIRMWARE        "no"
+FLASH CUSTOM IMG      "no"
+FLASH ADDITIONAL ZIPS "no"
 
-####################################################################
+
+##################################################################################################
 
 Basic Arguments for slot
-Arguments              PARAMETRS ( "_a" or "_b" )
+Arguments              PARAMETRS ( example "_a" or "_b" )
 
 INSTALL SLOT           "default"
 
-####################################################################
+##################################################################################################
 
-If you specify the file name without the full path to the file, then you need to put the files in the same folder with the MFP
-Arguments             PARAMETRS ( "filenme" ) or ( "/sdcard/folder/folder/filename" )
+If you specify the file name without the full path to the file, then you need to put 
+the files in the same folder with the MFP
 
-Path ROM              "ROM.zip"
+Arguments             PARAMETRS ( example "rom.zip/rar/7z" or "recovery.img" or "rom-fastboot.zip/rar/7z") 
+Arguments             PARAMETRS ( example "/sdcard/folder/folder/filename.img/rar/zip/7z" )
+
+Path ROM              ""
 Path Recovery         ""
-Path Magisk           " "
-Path Kernel           " "
+Path Magisk           ""
+Path Kernel           ""
+Path Firmware         ""
+
+##################################################################################################
+
+!!!!!! Do not use to install Magisk|Recovery|Rom|Kernel|Firmware in this block !!!!!!
+
+Arguments             PARAMETRS ( example "Gapps.zip" ) 
+Arguments             PARAMETRS ( example "/sdcard/folder/folder/filename.zip" )
+
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+
+
+##################################################################################################
+
+If u need flashing custom img "except vednor.img|system_ext.img|system.img|product.img|odm.img|super.img"
+!!!!!At your risk, the correct operation of the ROM is not guaranteed.!!!!!
+	
+Arguments		      PARAMETRS ( example "filenme.img" -> "vendor_boot" )
+                      PARAMETRS ( example "/sdcard/folder/filenme.img" -> "vendor_boot" )
+
+Path custom.img       " " -> " " 
+Path custom.img       " " -> " " 
+Path custom.img       " " -> " " 
+Path custom.img       " " -> " " 
+Path custom.img       " " -> " " 
+Path custom.img       " " -> " " 
+Path custom.img       " " -> " " 
 

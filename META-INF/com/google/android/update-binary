@@ -6,17 +6,17 @@ export OUTFD=$2
 arg1=$1 ; arg2=$2 ; arg3=$3
 
 ui_print(){ echo -e "ui_print $1" >> "/proc/self/fd/$arg2" ; }
-progress(){ echo "progress ${1} ${2}" >> "/proc/self/fd/$arg2" ; }
-set_progress(){ echo "set_progress ${1}" >> "/proc/self/fd/$arg2" ; }
+progress(){ echo -e "progress $1 $2" >> "/proc/self/fd/$arg2" ; }
+set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-ALPHA-4.0.11"
+MFPAPP="MFP-ALPHA-4.1.0"
 
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
-set_progress "0.00"
-progress "0.70" "150"
+#set_progress 0.00
+#progress 0.70 150
 mount /data
 ui_print "-  $slot_num $slot_ab"
 unzip -o "$arg3" "busybox" -d /tmp/bin/
@@ -63,11 +63,13 @@ RUN_ARG_EXAMPLE(){
 	ui_print "  FLASH RECOVERY yes"
 	ui_print "  FLASH KERNEL yes"
 	ui_print "  FLASH MAGISK yes"
+	ui_print "  FLASH FIRMWARE yes"
 	ui_print "  INSTALL SLOT _a/_b"
-	ui_print "  Name rom rom_name.zip"
-	ui_print "  Name recovery recovery_name.img/zip"
-	ui_print "  Name magisk magisk_name.zip/apk"
-	ui_print "  Name kernel kernel_name.zip"
+	ui_print "  Path rom rom_name.zip"
+	ui_print "  Path recovery recovery_name.img/zip"
+	ui_print "  Path magisk magisk_name.zip/apk"
+	ui_print "  Path kernel kernel_name.zip"
+	ui_print "  Path firmware firmware_name.zip"
 	}
 RUN_READ_ARG(){
 	for remove in $( grep "\"/storage/" $arguments ) ; do
@@ -81,6 +83,12 @@ RUN_READ_ARG(){
 		sed -i 's|'$dod1'|'$dod2'|' $arguments
 	done
 
+		if ( grep "INSTALL SLOT" "$arguments" | grep -i "_a" ) ; then
+		$flashrom && newslot="_a" || newslot="$slot_ab"
+	elif ( grep "INSTALL SLOT" "$arguments" | grep -i "_b" ) ; then
+		$flashrom && newslot="_b" || newslot="$slot_ab"
+	else 
+		newslot="$slot_ab" ; fi
 
 	( grep "MAKERW" "$arguments" | grep -i "yes" ) && flashrw=true || flashrw=false
 
@@ -93,8 +101,64 @@ RUN_READ_ARG(){
 			if ( echo $name_rom | grep "/" ) ; then romzip=$name_rom
 			else romzip="$zipfolder/$name_rom" ; fi
 			if [[ -f $romzip ]] ; then flashrom=true
-			else ui_print "-  Not find $romzip" ; exit 144 ; fi ; fi
+			else ui_print "-  Not find $romzip" ; exit 147 ; fi ; fi
 	else flashrom=false ; fi
+
+
+	if ( grep "FLASH CUSTOM IMG" "$arguments" | grep -i "yes" ) ; then
+		for img in "$(grep -i "Path custom.img" "$arguments" | grep "/" )" ; do
+			name_imgc=$img
+			name_imgc=${name_imgc#*\"} ; name_imgc=${name_imgc%%\"*}
+			if [[ -z $name_imgc ]] ; then continue ; else
+				if ( echo $name_imgc | grep "/" ) ; then imgzip=$name_imgc
+				else imgzip="$zipfolder/$name_imgc" ; fi
+				if [[ -f $imgzip ]] ; then
+					name_imgp=$img
+					name_imgp=${name_imgp##*\"} ; name_imgp=${name_imgp%\"*}
+					if [[ -f /dev/block/by-name/name_imgp$newslot ]] ; then
+						name_imgp="/dev/block/by-name/$name_imgp$newslot"
+						flashimgto="$flashimgto\n${imgzip}flash2flash${name_imgp}"					
+					else ui_print "-  Not find /dev/block/by-name/name_imgp$newslot" ; exit 148
+					fi
+				else ui_print "-  Not find $imgzip" ; exit 148 ; fi ; fi
+		done
+		if ( echo -e "$flashimgto" | grep "/" ) ; then flashcimg=true ; else flashcimg=false ; fi
+	else flashcimg=false ; fi
+
+
+	if ( grep "FLASH ADDITIONAL ZIPS" "$arguments" | grep -i "yes" ) ; then
+		for list in $( grep -i "Path additional zips" "$arguments" ) ; do 
+			list=$( echo "$list" | grep -q "\.zip" && echo $list ) 
+			name_ADDzip=${list#*\"} ; name_ADDzip=${name_ADDzip%%\"*}
+			if [[ -z $name_ADDzip ]] ; then 
+				continue 
+			else
+				ui_print "-  $name_ADDzip"
+				if ( echo $name_ADDzip | grep "/" ) ; then 
+					ADDzip=$name_ADDzip
+				else 
+					ADDzip="$zipfolder/$name_ADDzip" 
+				fi
+				if [[ -f $ADDzip ]] ; then 
+					listADDzip="$listADDzip\n$ADDzip"
+				else ui_print "-  Not find $ADDzip" 
+					exit 149 
+				fi 
+			fi
+		done
+		if ( echo -e "$listADDzip" | grep "/" ) ; then flashfw=true ; else flashfw=false ; fi
+	else flashfw=false ; fi
+
+
+	if ( grep "FLASH FIRMWARE" "$arguments" | grep -i "yes" ) ; then
+		name_fw=$(grep -i "path firmware" "$arguments")
+		name_fw=${name_fw#*\"} ; name_fw=${name_fw%\"*}
+		if [[ -z $name_fw ]] ; then flashfw=false ; else
+			if ( echo $name_fw | grep "/" ) ; then fwzip=$name_fw
+			else fwzip="$zipfolder/$name_fw" ; fi
+			if [[ -f $fwzip ]] ; then flashfw=true
+			else ui_print "-  Not find $fwzip" ; exit 132 ; fi ; fi
+	else flashfw=false ; fi
 
 
 	if ( grep "FLASH RECOVERY" "$arguments" | grep -i "yes" ) ; then
@@ -130,13 +194,6 @@ RUN_READ_ARG(){
 		else ui_print "-  Not find $kerzip" ; exit 142 ; fi ; fi		
 	else flashker=false ; fi
 
-
-	if ( grep "INSTALL SLOT" "$arguments" | grep -i "_a" ) ; then
-		$flashrom && newslot="_a" || newslot="$slot_ab"
-	elif ( grep "INSTALL SLOT" "$arguments" | grep -i "_b" ) ; then
-		$flashrom && newslot="_b" || newslot="$slot_ab"
-	else 
-		newslot="$slot_ab" ; fi
 	if ( grep "REFLASH RECOVERY" "$arguments" | grep -i "yes" ) ; then 
 		$flashrom && reflashrec=true || reflashrec=false
 	else reflashrec=false ; fi
@@ -282,8 +339,13 @@ lpdump --slot=$newslot >> $LPDUMP
 
 
 RUN_FINAL(){
-	set_progress "0.90"
+	set_progress 0.90
 	$flashker && RUN_FLASH_KERNEL
+	if $flashcimg ; then 
+		for img in "$( echo -e $flashimgto )" ; do	
+		dd of=${img%flash2flash*} if=${img#*flash2flash}
+		done
+	fi
 	if [ $newslot == $slot_ab ] ; then
 		avbctl --force disable-verity 
 		avbctl --force disable-verification
@@ -321,6 +383,9 @@ RUN_FINAL(){
 			ui_print "---***|       flash the DFE again     |***---"
 			ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	fi
+			ui_print  "------******!!!!!!!!!!!!!!!!!!!!******-------"
+			ui_print  "------      Installing complited      -------"
+			ui_print  "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	rm -rf $home
 	set_progress "1.00"
 	exit 0 
@@ -949,9 +1014,27 @@ RUN_VENDORBOOT_PATCH(){
 	}
 RUN_FW_FLASH(){
 	ui_print "-  Starting Flashing FW"
+	if $flashfw ; then 
+		ui_print "-  Flash custom fw"
+		mkdir -pv $home/fw_custom
+		7za e "$fwzip" -o$home/fw_custom/ "*.img" -y -r -mmt8
+		orig="" ; for f in $( ls $home/fw ) $( ls $home/boot ) ; do orig="$orig\n$( basename $f )" ; done 
+	 	custom="" ; for f in $( ls $home/fw_custom ) ; do custom="$custom\n$( basename $f )" ; done 
+	 	for f in $( echo -e "$orig" ) ; do 
+	 		if ( echo -e "$custom" | grep "$f" ) ; then
+	 			rm -rf $home/fw_custom/$f
+	 		fi
+	 	done
+	 	for fw in $( find $home/fw_custom/*img ) ; do
+	        fwname=$( basename ${fw%.img*} )
+	        ui_print "-  Flashing custom $fwname"
+	        dd if=$fw of=/dev/block/by-name/$fwname$newslot
+   		done
+	fi
+
 	for fw in $( find $home/fw/*img $home/boot/*img ) ; do
         fwname=$( basename ${fw%.img*} )
-        ui_print "-  Flashing $fwname"
+        ui_print "-  Flashing inbuild $fwname"
         dd if=$fw of=/dev/block/by-name/$fwname$newslot
     done
     }
@@ -984,10 +1067,45 @@ RUN_DUMP_PART(){
 	}
 RUN_DFE_RW_IN_SUPER(){
 
-		if $flashrw ; then
-			RUN_ALL_RW
-		fi
-		if $flashdfe ; then
+	if $flashrw ; then
+		RUN_ALL_RW
+	fi
+
+	if $flashADDzips ; then 
+		! $flashrw && RUN_ALL_RW
+		cp /etc/fstab $home/fstab.bak
+
+		sed -i 's|'$( grep "/system_ext" "/etc/fstab" | awk '{ print $1 }' )'|'$home'/imgs/system_ext'$newslot'.img|'
+		sed -i 's|'$( grep "/system_root" "/etc/fstab" | awk '{ print $1 }' )'|'$home'/imgs/system'$newslot'.img|'
+		sed -i 's|'$( grep "/vendor" "/etc/fstab" | awk '{ print $1 }' )'|'$home'/imgs/vendor'$newslot'.img|'
+		sed -i 's|'$( grep "/product" "/etc/fstab" | awk '{ print $1 }' )'|'$home'/imgs/product'$newslot'.img|'
+		sed -i 's|'$( grep "/odm" "/etc/fstab" | awk '{ print $1 }' )'|'$home'/imgs/odm'$newslot'.img|'
+		mkdir -pv $home/mapper
+		for img in $( ls $home/imgs/* ) ; do
+			if [[ $newslot == $slot_ab ]] ; then 
+			ln -s $img $home/mapper/$( basename ${img%.img*} )
+			else 
+				ln -s $img $home/mapper/$( basename "${img%"$newslot".img*}" )$slot_ab
+				ln -s $img $home/mapper/$( basename ${img%.img*} )
+			fi
+		done
+
+		mount $home/mapper /dev/block/mapper
+
+		for install in $( echo -e "$listADDzip" ) ; do
+			ui_print "-  #install"
+			mkdir -pv /tmp/addzip/$( basename ${install%.zip*} )
+			7za e "$install" -o/tmp/addzip/$( basename ${install%.zip*} )/ "update-binary" -y -r -mmt8
+			ui_print "-  FLASHING $( basename $install )"
+			/tmp/addzip/${install%.zip*}/update-binary $arg1 $arg2 $install
+		done
+
+		umount /dev/block/mapper
+		cp $home/fstab.bak /etc/fstab
+	fi
+
+
+	if $flashdfe ; then
 		echo "  -  test1"
 		RUN_MOUNT_IMG "$home/imgs/vendor$newslot.img"
 		if [[ $retpop == 41 ]] ; then
@@ -1068,6 +1186,8 @@ RUN_DFE_RW_IN_SUPER(){
 			fi
 		fi 
 	fi
+
+
 	RUN_MAKE_SUPER
 	return 40
 	
