@@ -11,7 +11,7 @@ set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-ALPHA-4.1.3d"
+MFPAPP="MFP-ALPHA-4.1.4"
 
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
@@ -764,20 +764,14 @@ RUN_RECOVERY_FLASH(){
 RUN_INIT_PATCH(){
 	gon=false
 	finit=$(grep -n -x "on init" /system_root/system/etc/init/hw/init.rc | awk '{print int($1)}')
-	RUN_CHECK_RW ; suckinit=$?
-	if [[ $suckinit == 40 ]] ; then
 	    floop=false 
 	    while [ $floop == false ] ; do
 	        finit=$( expr $finit + 1 )
 	        r=$(head -n$finit /system_root/system/etc/init/hw/init.rc | tail -n1)
 	        [[ -z $r ]] && break
 	    done 
-	    grep "ro.crypto.state" /system_root/system/etc/init/hw/init.rc && sed -i '/ro.crypto.state/d' $1/system/etc/init/hw/init.rc && gon=true && sed -i "${finit}i \    setprop ro.crypto.state encrypted" $1/system/etc/init/hw/init.rc
-	    ! $gon && sed -i "${finit}i \   setprop ro.crypto.state encrypted" $1/system/etc/init/hw/init.rc
-	else
-	    ui_print "-  Something wrong: error 12"
-	    exit 12
-	fi
+	    grep -F "ro.crypto.state" /system_root/system/etc/init/hw/init.rc && sed -i '/ro.crypto.state/d' /system_root/system/etc/init/hw/init.rc && gon=true && sed -i "${finit}i \    setprop ro.crypto.state encrypted" /system_root/system/etc/init/hw/init.rc
+		! $gon && sed -i "${finit}i \	setprop ro.crypto.state encrypted" /system_root/system/etc/init/hw/init.rc
 	}
 
 RUN_BOOT_PATCH(){
