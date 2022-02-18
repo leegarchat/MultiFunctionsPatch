@@ -11,7 +11,7 @@ set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-ALPHA-4.1.3b"
+MFPAPP="MFP-ALPHA-4.1.3c"
 
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
@@ -603,7 +603,7 @@ RUN_RECOVERY_REFLASH(){
 	ui_print "-  Starting recovery reflash"
 	mkdir -pv /tmp/bin/twrp/
 	mv /tmp/bin/twrp.img /tmp/bin/twrp/twrp.img
-	dd if=/dev/block/by-name/boot$1 of=/tmp/bin/boot.img
+	dd if=/dev/block/by-name/boot$slot_ab of=/tmp/bin/boot.img
 	cd /tmp/bin ; magiskboot unpack boot.img
 	rm -f ramdisk.cpio
 	cd /tmp/bin/twrp ; magiskboot unpack twrp.img
@@ -611,7 +611,7 @@ RUN_RECOVERY_REFLASH(){
 	cd /tmp/bin/
 	cpio ramdisk.cpio sha1
 	magiskboot repack boot.img
-	dd if=/tmp/bin/new-boot.img of=/dev/block/by-name/boot$1
+	dd if=/tmp/bin/new-boot.img of=/dev/block/by-name/boot$slot_ab
 	rm -rf "twrp" "ramdisk*" "*.img" "kernel*"
 	}
 
@@ -763,16 +763,16 @@ RUN_RECOVERY_FLASH(){
 
 RUN_INIT_PATCH(){
 	gon=false
-	finit=$(grep -n -x "on init" $1/system/etc/init/hw/init.rc | awk '{print int($1)}')
+	finit=$(grep -n -x "on init" /system_root/system/etc/init/hw/init.rc | awk '{print int($1)}')
 	RUN_CHECK_RW ; suckinit=$?
 	if [[ $suckinit == 40 ]] ; then
 	    floop=false 
 	    while [ $floop == false ] ; do
 	        finit=$( expr $finit + 1 )
-	        r=$(head -n$finit $1/system/etc/init/hw/init.rc | tail -n1)
+	        r=$(head -n$finit /system_root/system/etc/init/hw/init.rc | tail -n1)
 	        [[ -z $r ]] && break
 	    done 
-	    grep "ro.crypto.state" $1/system/etc/init/hw/init.rc && sed -i '/ro.crypto.state/d' $1/system/etc/init/hw/init.rc && gon=true && sed -i "${finit}i \    setprop ro.crypto.state encrypted" $1/system/etc/init/hw/init.rc
+	    grep "ro.crypto.state" /system_root/system/etc/init/hw/init.rc && sed -i '/ro.crypto.state/d' $1/system/etc/init/hw/init.rc && gon=true && sed -i "${finit}i \    setprop ro.crypto.state encrypted" $1/system/etc/init/hw/init.rc
 	    ! $gon && sed -i "${finit}i \   setprop ro.crypto.state encrypted" $1/system/etc/init/hw/init.rc
 	else
 	    ui_print "-  Something wrong: error 12"
@@ -828,14 +828,14 @@ RUN_FW_FLASH(){
 
 RUN_RECOVERY_FLASH_SM8250(){
 	ui_print "-  Starting Flashing twrp vashy for SM8250"
-	dd if=/dev/block/by-name/boot$1 of=/tmp/bin/boot.img
+	dd if=/dev/block/by-name/boot$slot_ab of=/tmp/bin/boot.img
 	cd /tmp/bin ; magiskboot unpack boot.img
 	rm -f ramdisk.cpio
 	cp /tmp/twrp/twrp.cpio /tmp/bin/ramdisk.cpio
 	cd /tmp/bin/ 
 	cpio ramdisk.cpio sha1
 	magiskboot repack boot.img
-	dd if=/tmp/bin/new-boot.img of=/dev/block/by-name/boot$1
+	dd if=/tmp/bin/new-boot.img of=/dev/block/by-name/boot$slot_ab
 	rm -rf "twrp" "ramdisk*" "*.img" "kernel*"
 	}
 
