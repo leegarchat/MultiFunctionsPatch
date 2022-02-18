@@ -13,7 +13,7 @@ set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-BETA-4.1.9b"
+MFPAPP="MFP-BETA-4.1.9c"
 if ( echo "$( dirname "$arg3" )" | grep ' ' ) || ( echo "$arg3" | grep ' ' ) ; then
 	ui_print "-  Please remove spaces from the path name"
 	ui_print "-  Bad path /sdcard/folder name/mfp.zip"
@@ -415,6 +415,12 @@ RUN_MAKE_SUPER(){
     [ -z $gp ] && echo "--metadata-size $ms --super-name super --sparse --metadata-slots $mslot --device super:$Ss --group qti_dynamic_partitions$newslot:$Ss $partadd --output $home/newsuper.img" >> $home/argslp.txt
     ui_print "-  Creation of newsuper.img. For OTG process very long 40-50 minutes. Please wait..."
     lpmake $(cat "$home/argslp.txt") && retpop=40 || retpop=41
+    if [[ $retpop == 41 ]] ; then 
+        rm -f $home/argslp.txt
+        [ -z $gp ] || echo "--metadata-size 65536 --super-name super --sparse --metadata-slots $mslot --device super:$Ss --group $gp:$Ss $partadd --output $home/newsuper.img" >> $home/argslp.txt
+        [ -z $gp ] && echo "--metadata-size 65536 --super-name super --sparse --metadata-slots $mslot --device super:$Ss --group qti_dynamic_partitions$newslot:$Ss $partadd --output $home/newsuper.img" >> $home/argslp.txt
+        lpmake $(cat "$home/argslp.txt") && retpop=40 || retpop=41
+    fi
 
 	}	
 
