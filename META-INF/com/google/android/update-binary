@@ -11,7 +11,7 @@ set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-ALPHA-4.1.3c"
+MFPAPP="MFP-ALPHA-4.1.3d"
 
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
@@ -903,7 +903,7 @@ case $zipname in
 		arguments=$zipfolder/arguments.txt
 		;;
 		   *)	
-		unzip -o "$zipname" "arguments.txt" -d /tmp/lib/
+		/tmp/bin/busybox unzip -o "$arg3" "arguments.txt" -d /tmp/lib/
 		arguments=/tmp/lib/arguments.txt
 		;;
 esac
