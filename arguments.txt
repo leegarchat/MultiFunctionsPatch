@@ -1,1 +1,52 @@
-MFP-ALPHA-4.zip
+####################################################################
+####################################################################
+
+Basic Patch Arguments
+
+Arguments             PARAMETRS ( yes or no )
+
+MAKERW                "no"
+DFE                   "no"
+REFLASH RECOVERY      "no"
+FLASH MAGISK          "no"
+FLASH RECOVERY        "no"
+FLASH ROM             "no"
+FLASH KERNEL          "no"
+FULL PATH ROM         "no"
+FULL PATH RECOVERY    "no"
+FULL PATH MAGISK      "no"
+FULL PATH KERNEL      "no"
+
+####################################################################
+
+Basic Arguments for slot
+
+Arguments              PARAMETRS ( _a or _b )
+
+INSTALL SLOT           "default"
+
+####################################################################
+
+The installation file is in the same folder as MFP.zip
+
+Arguments             PARAMETRS ( filenme )
+
+Name ROM              " "
+Name Recovery         " "
+Name Magisk           " "
+Name Kernel           " "
+
+####################################################################
+
+If all files are in different folders
+Working with args FULL PATH ROM|RECOVERY|MAGISK|KERNEL
+
+Arguments             PARAMETRS ( /sdcard/folder/folder/filename )
+
+Full path to ROM      " "
+Full path to Recovery " "
+Full path to Magisk   " "
+Full path to Kernel   " "
+
+####################################################################
+
