@@ -11,7 +11,7 @@ set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-BETA-4.1.6"
+MFPAPP="MFP-BETA-4.1.7"
 
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
@@ -165,7 +165,7 @@ RUN_LOGO(){
 	ui_print "-  FLASH ROM: $( $flashrom && echo "YES" || echo NO )"
 	ui_print "-  ADDITIONAL ZIPS: $( $flashADDzip && echo "YES" || echo "NO" )"
 	ui_print " "
-	if ! $flashADDzip || ! $flashrom || ! $flashrec ; then 
+	if ! $flashADDzip && ! $flashrom && ! $flashrec ; then 
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------" ; fi
 	ui_print " "
 	if $flashrom ; then
@@ -364,9 +364,10 @@ RUN_SINGL_STRUCTURES(){
 			    rm $home/newdatsuper/super.img
 			    mv $home/newdatsuper/super.row.img $home/newdatsuper/super.img
 		    fi
-		    lpunpack $home/newdatsuper/super.img $home/newdatsuper/
+            mkdir $home/newdatsuper/super
+		    lpunpack $home/newdatsuper/super.img $home/newdatsuper/super
 		    for imgs in system_ext_a system_a vendor_a product_a odm_a ; do
-		        for imgsp in $( find $home/newdatsuper/$imgs.img ) ; do 
+		        for imgsp in $( find $home/newdatsuper/super/$imgs.img ) ; do 
 			        if [[ $( stat -c%s $imgsp ) -ge 50 ]] ; then
 			            mv $imgsp $home/imgs/${imgs%_*}$newslot.img
 			        else
@@ -382,14 +383,20 @@ RUN_SINGL_STRUCTURES(){
 	    rm -f $home/newdatsuper/*
 	elif [[ $1 == "53" ]] ; then
 		7za e "$romzip" -o$home/super/ "*.img" -y -r -mmt8
+        for img in $( find $home/super/*.img ) ; do
+            if ( zstd -l $img ) ; then 
+                zstd -c -d $img > ${img%.img*}.d.img && rm -f $img && mv ${img%.img*}.d.img $img
+            fi
+        done
 	    if ( file $home/super/super.img | grep -q sparse ) ; then 
 		    simg2img $home/super/super.img $home/super/super.row.img
 		    rm $home/super/super.img
 		    mv $home/super/super.row.img $home/super/super.img
 	    fi
-	    lpunpack $home/super/super.img $home/super/
+        mkdir $home/super/super
+	    lpunpack $home/super/super.img $home/super/super
 	    for imgs in system_ext_a system_a vendor_a product_a odm_a ; do
-	        for imgsp in $( find $home/super/$imgs*.img ) ; do 
+	        for imgsp in $( find $home/super/super/$imgs*.img ) ; do 
 	        if [[ $( stat -c%s $imgsp ) -ge 50 ]] ; then
 	            mv $imgsp $home/imgs/${imgs%_*}$newslot.img
 	        else
@@ -403,6 +410,11 @@ RUN_SINGL_STRUCTURES(){
 	    done
 	elif [[ $1 == "52" ]] ; then 
 		7za e "$romzip" -o$home/nonsuper/ "*.img" -y -r -mmt8
+        for img in $( find $home/nonsuper/*.img ) ; do
+            if ( zstd -l $img ) ; then 
+                zstd -c -d $img > ${img%.img*}.d.img && rm -f $img && mv ${img%.img*}.d.img $img
+            fi
+        done
 		for bootimgs in "vendor_boot" "boot" ; do  
 	        bootimgsp=$( find $home/nonsuper/$bootimgs*.img )
 	        mv $bootimgsp $home/fw/
@@ -948,17 +960,18 @@ if ( [[ $permm == 41 ]] && ! $flashrom ) || ( $flashrw && ! $flashrom ) ; then
 	RUN_ALL_MAUNT --umount
 	RUN_DUMP_PART
 	RUN_ALL_RW
-	RUN_MOUNT_SUPER --mount-super
-	RUN_MOUNT_SUPER --mount-fw
-	RUN_ALL_MAUNT --mount
-	RUN_CHECK_RW ; perm=$? 
-	if [[ $perm == 41 ]] ; then 
-		RUN_ALL_MAUNT --umount
-		RUN_MOUNT_SUPER --umount-super
-		RUN_MOUNT_SUPER --umount-fw
-		ui_print "-  Something wrong: 21"
-		exit 21
-	fi ; fi
+		if $flashdfe || $flashADDzip ; then
+			RUN_MOUNT_SUPER --mount-super
+			RUN_MOUNT_SUPER --mount-fw
+			RUN_ALL_MAUNT --mount
+			RUN_CHECK_RW ; perm=$? 
+			if [[ $perm == 41 ]] ; then 
+				RUN_ALL_MAUNT --umount
+				RUN_MOUNT_SUPER --umount-super
+				RUN_MOUNT_SUPER --umount-fw
+				ui_print "-  Something wrong: 21"
+				exit 21
+			fi ; fi ; fi
 [[ -f /vendor/etc/fstab.sm8250 ]] && sm8250=true || sm8250=false
 
 $flashdfe && RUN_DFE "/vendor"
