@@ -190,7 +190,9 @@ RUN_ARG_CHECK(){
 
 RUN_LOGO(){
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
+	ui_print " "
 	ui_print "-  Home folder $home"
+	ui_print " "
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	ui_print " "
 	ui_print "-  $MFPAPP"
@@ -215,20 +217,29 @@ RUN_LOGO(){
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------" ; fi
 	ui_print " "
 	if $flashrom ; then
+		ui_print " "
 	ui_print "------******!!!!!!!!ROM!!!!!!!!!******-------"
+	ui_print " "
 	ui_print "-  $( basename $romzip )"
+	ui_print " "
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	fi
 	if $flashrec ; then
+		ui_print " "
 	ui_print "------******!!!!!!RECOVERY!!!!!!******-------"
+	ui_print " "
 	ui_print "-  $( basename $reczip  )"
+	ui_print " "
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	fi
 	if $flashADDzip ; then 
+		ui_print " "
 		ui_print "------******!!ADDITIONAL ZIPS!!!******-------"
+		ui_print " "
 		for name in $( echo -e "$listADDzip" ) ; do
 			ui_print "-  $( basename $name )"
 		done
+		ui_print " "
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	fi
 	}
