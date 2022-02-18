@@ -11,11 +11,11 @@ set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-BETA-4.1.5"
+MFPAPP="MFP-BETA-4.1.6"
 
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
-mount /data
+( mountpoint -q /data ) || mount /data
 unzip -o "$arg3" "busybox" -d /tmp/bin/
 chmod 777 /tmp/bin/busybox
 mkdir -pv /tmp/bin
@@ -27,27 +27,22 @@ chmod 777 /tmp/lib/*
 find /tmp/bin/* -exec ln -s {} /system/bin \; 
 export PATH=/tmp/bin:$PATH 
 slot_num=$(bootctl get-current-slot) ; slot_ab=$(bootctl get-suffix $slot_num)
-ui_print "-  $slot_num $slot_ab"
 if ( /tmp/bin/toybox mountpoint -q /sdcard/ ) ; then
-home="/sdcard/MFPAPP" 
-ui_print "-  Home folder $home"
+	home="/sdcard/MFPAPP"
 elif ( /tmp/bin/toybox mountpoint -q /data/ ) ; then
 	mount /data/media/0 /sdcard
 	if ( /tmp/bin/toybox mountpoint -q /sdcard/ ) ; then
 		home="/sdcard/MFPAPP" 
-		ui_print "-  Home folder $home"
 	else
 		home="/data/media/0/MFPAPP"
-		ui_print "-  Home folder $home"
 	fi
 else
-if ( /tmp/bin/toybox mountpoint -q /usb_otg/ ) ; then 
-	home="/usb_otg/MFPAPP" 
-	ui_print "-  Home folder $home"
-else 
-	ui_print "-  Need OTG or mounted /sdcard/ for stable working" 
-	exit 66
-fi
+	if ( /tmp/bin/toybox mountpoint -q /usb_otg/ ) ; then 
+		home="/usb_otg/MFPAPP" 
+	else 
+		ui_print "-  Need OTG or mounted /sdcard/ for stable working" 
+		exit 66
+	fi
 fi
 rm -rf $home
 
@@ -62,13 +57,13 @@ n=1
 RUN_READ_ARG(){
 	for remove in $( grep "\"/storage/" $arguments ) ; do
 		dod1=${remove#*\"} ; dod1=${dod1%\"*}
-		dod2="/sdcard/"${dod#*/*/*/*/}""
-		sed -i 's|'$dod1'|'$dod2'|' $arguments
+		dod2="/sdcard/"${dod1#*/*/*/*/}""
+		echo $remove | grep "\"/storage/" && sed -i 's|'$dod1'|'$dod2'|' $arguments
 	done
 	for remove in $( grep "\"/mnt/" $arguments ) ; do
 		dod1=${remove#*\"} ; dod1=${dod1%\"*}
 		dod2="/usb_otg/"${dod#*/*/*/*/}""
-		sed -i 's|'$dod1'|'$dod2'|' $arguments
+		echo $remove | grep "\"/mnt/" && sed -i 's|'$dod1'|'$dod2'|' $arguments
 	done
 
 	if ( grep "INSTALL SLOT" "$arguments" | grep -i "_a" ) ; then
@@ -99,7 +94,6 @@ RUN_READ_ARG(){
 			if [[ -z $name_ADDzip ]] ; then 
 				continue 
 			else
-				ui_print "-  $name_ADDzip"
 				if ( echo $name_ADDzip | grep "/" ) ; then 
 					ADDzip=$name_ADDzip
 				else 
@@ -125,8 +119,18 @@ RUN_READ_ARG(){
 			else ui_print "-  Not find $reczip" ; exit 140 ; fi ; fi
 	else flashrec=false ; fi
 
-	if ( grep "REFLASH RECOVERY" "$arguments" | grep -i "yes" ) ; then 
-		$flashrom && reflashrec=true || reflashrec=false
+	if ( grep "RECOVERY REFLASH" "$arguments" | grep -i "yes" ) ; then 
+		if $flashrom ; then  
+			reflashrec=true 
+			if ( sha256sum --status -c /ramdisk-files.sha256sum ) || ( sha256sum --status -c /ramdisk-files.checkmus ) ; then 
+				mkdir -pv /tmp/bin/twrp/
+				cpio -H newc -o < /ramdisk-files.txt > /tmp/bin/twrp/ramdisk.cpio
+			else
+				ui_print "-  Ramdisk files have been modified, unable to create ramdisk to flash, fastboot boot twrp and try this option again or use the Install Recovery Ramdisk option."
+				exit 99
+			fi
+		else reflashrec=false
+		fi
 	else reflashrec=false ; fi
 
 	}
@@ -134,7 +138,7 @@ RUN_READ_ARG(){
 RUN_ARG_CHECK(){ 
 	if ! $flashrom && ! $flashrec && ! $flashdfe && ! $flashrw && ! $flashADDzip ; then 
 		ui_print "-  No arguments"
-		ui_print "- Copy .zip name in arguments.txt into .zip files or creat near .zip arguments.txt"
+		ui_print "- Copy .zip name in arguments.txt into .zip files or creat near .zip arguments.txt and rename fmp to ARGOUT-MFP.zip"
 		exit 49
 	else
 		RUN_LOGO
@@ -142,7 +146,8 @@ RUN_ARG_CHECK(){
 	}
 
 RUN_LOGO(){
-	ui_print " "
+	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
+	ui_print "-  Home folder $home"
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	ui_print " "
 	ui_print "-  $MFPAPP"
@@ -157,12 +162,29 @@ RUN_LOGO(){
 	ui_print "-  INSLOT-A/B: $newslot"
 	ui_print "-  REFLASH RECOVERY: $( $reflashrec && echo "YES" || echo NO )"
 	ui_print "-  FLASH RECOVERY: $( $flashrec && echo "YES" || echo NO )"
-	ui_print "-  $( basename $reczip )"
 	ui_print "-  FLASH ROM: $( $flashrom && echo "YES" || echo NO )"
+	ui_print "-  ADDITIONAL ZIPS: $( $flashADDzip && echo "YES" || echo "NO" )"
+	ui_print " "
+	if ! $flashADDzip || ! $flashrom || ! $flashrec ; then 
+		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------" ; fi
+	ui_print " "
+	if $flashrom ; then
+	ui_print "------******!!!!!!!!ROM!!!!!!!!!******-------"
 	ui_print "-  $( basename $romzip )"
-	ui_print " "
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
-	ui_print " "
+	fi
+	if $flashrec ; then
+	ui_print "------******!!!!!!RECOVERY!!!!!!******-------"
+	ui_print "-  $( basename $reczip  )"
+	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
+	fi
+	if $flashADDzip ; then 
+		ui_print "------******!!ADDITIONAL ZIPS!!!******-------"
+		for name in $( echo -e "$listADDzip" ) ; do
+			ui_print "-  $( basename $name )"
+		done
+		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
+	fi
 	}
 
 RUN_MOUNT_SUPER(){ 
@@ -294,7 +316,7 @@ RUN_MAKE_SUPER(){
 
 RUN_SINGL_STRUCTURES(){
 	ui_print "-  Starting SINGL STRUCTURES"
-	ui_print "-  Unpack $romzip"
+	ui_print "-  Unpack $romzip wait..."
 	if [[ $1 == "54" ]] ; then 
 		7za e "$romzip" -o$home/newdat/ "*.new.dat*" -y -r -mmt8
 		7za e "$romzip" -o$home/newdat/ "*.transfer.list" -y -r -mmt8
@@ -402,7 +424,7 @@ RUN_SINGL_STRUCTURES(){
 	    for imgs in system_ext system vendor product odm ; do
 
 	        imgsp=$( find $home/payload/$imgs*.img )
-	        ui_print "-  Move $imgsp"
+	        #ui_print "-  Move $imgsp"
 	        mv $imgsp $home/imgs/${imgs}$newslot.img
 	    done
 	    for fwimgs in $( find $home/payload/*.img ) ; do
@@ -418,7 +440,7 @@ RUN_SINGL_STRUCTURES(){
 	    done
 	    for imgs in system_ext system vendor product odm ; do
 	        imgsp=$( find $home/payload/$imgs*.img )
-	        ui_print "-  Move $imgsp"
+	        #ui_print "-  Move $imgsp"
 	        mv $imgsp $home/imgs/${imgs}$newslot.img
 	    done
 	    for fwimgs in $( find $home/payload/*.img ) ; do
@@ -475,7 +497,7 @@ RUN_CHECK_ROM(){
 			exit 101
 		fi
 		if [[ -f $romzip ]] && $flashrom ; then
-		    ui_print "-  $romzip find"
+		    #ui_print "-  $romzip find"
 		    if $( 7za l "$romzip" | grep -q payload.bin ) ; then 
 		        ui_print "-  Detected payload.bin"
 		        if [[ $( stat -c%s $romzip ) -ge 3221225472 ]] ; then
@@ -520,10 +542,10 @@ RUN_DFE(){
 	sm8250=false
 	size_c=false
 	path_to=$1
-	ui_print "-  Starting patching fstabes"
+	#ui_print "-  Starting patching fstabes"
 	for fstabes in $( find $path_to/etc/*fstab* ) ; do
 		if ( grep "/userdata" $fstabes ) && ( grep "/metadata" $fstabes ) ; then 
-			ui_print "-  $( basename $fstabes )"
+			#ui_print "-  $( basename $fstabes )"
 			while (grep "fileencryption=" $fstabes) || (grep "forcefdeorfbe=" $fstabes) || (grep "encryptable=" $fstabes) \
                 || (grep "forceencrypt=" $fstabes) || (grep "metadata_encryption=" $fstabes) || (grep "keydirectory=" $fstabes) \
                 || (grep "avb=" $fstabes) || (grep "avb_keys=" $fstabes) ; do
@@ -531,14 +553,14 @@ RUN_DFE(){
 				for ffff in "fileencryption=" "forcefdeorfbe=" "encryptable=" "forceencrypt=" "metadata_encryption=" "keydirectory=" "avb=" "avb_keys="
                 do
                     grep "$ffff" $fstabes && rem="${k#*"$ffff"}" && rem="${rem%%,*}" && rem="${ffff}${rem%%"$tabes"*}" || continue
-                    grep ",$rem" $fstabes && sed -i 's|,'$rem'||' $fstabes && size_c=true && ui_print "-  Flag ${rem#*"$ffff"}" 
-                    grep "$rem" $fstabes && sed -i 's|'$rem'||' $fstabes && size_c=true && ui_print "-  Flag ${rem#*"$ffff"}"
+                    grep ",$rem" $fstabes && sed -i 's|,'$rem'||' $fstabes && size_c=true #&& ui_print "-  Flag ${rem#*"$ffff"}" 
+                    grep "$rem" $fstabes && sed -i 's|'$rem'||' $fstabes && size_c=true #&& ui_print "-  Flag ${rem#*"$ffff"}"
                 done 
 			done
-			grep "avb" $fstabes && sed -i 's|,avb||g' $fstabes && size_c=true && ui_print "-  Remove avb"
-            grep "quota" $fstabes && sed -i 's|,quota||g' $fstabes && size_c=true && ui_print "-  Remove quota"
-            grep "inlinecrypt" $fstabes && sed -i 's|,inlinecrypt||g' $fstabes && size_c=true && ui_print "-  Remove inlinecrypt"
-            grep "wrappedkey" $fstabes && sed -i 's|,wrappedkey||g' $fstabes && size_c=true && ui_print "-  Remove weappedkey"
+			grep "avb" $fstabes && sed -i 's|,avb||g' $fstabes && size_c=true #&& ui_print "-  Remove avb"
+            grep "quota" $fstabes && sed -i 's|,quota||g' $fstabes && size_c=true #&& ui_print "-  Remove quota"
+            grep "inlinecrypt" $fstabes && sed -i 's|,inlinecrypt||g' $fstabes #&& size_c=true && ui_print "-  Remove inlinecrypt"
+            grep "wrappedkey" $fstabes && sed -i 's|,wrappedkey||g' $fstabes #&& size_c=true && ui_print "-  Remove weappedkey"
 			if [[ $( stat -c%s $fstabes ) -ge 30 ]] && $size_c ; then 
 				ui_print "-  $(basename $fstabes): Has been succesfully patched"
 				if [ $( basename $fstabes) == "fstab.sm8250" ] ; then 
@@ -590,7 +612,7 @@ RUN_RWS(){
 	psize=$2
 	imgsize=$( stat -c%s $1 ) 
 	new_size=$( calc "($imgsize+$2)/512" )
-	ui_print "-  Give RW "${asdf%"$newslot".img*}" - size: $(calc "($imgsize+$2)/1024/1024")MB. Free: $(calc "$2/1024/1024")MB"
+	#ui_print "-  Give RW "${asdf%"$newslot".img*}" - size: $(calc "($imgsize+$2)/1024/1024")MB. Free: $(calc "$2/1024/1024")MB"
 	echo "  -  $1 $imgsize $new_size"
 	resize2fs -f $1 ${new_size}s
 
@@ -598,8 +620,6 @@ RUN_RWS(){
 
 RUN_RECOVERY_REFLASH(){
 	ui_print "-  Starting recovery reflash"
-	mkdir -pv /tmp/bin/twrp/
-	cpio -H newc -o < /ramdisk-files.txt > /tmp/bin/twrp/ramdisk.cpio
 	dd if=/dev/block/by-name/boot$slot_ab of=/tmp/bin/boot.img
 	cd /tmp/bin ; magiskboot unpack boot.img
 	rm -f ramdisk.cpio
@@ -668,18 +688,18 @@ RUN_ALL_RW(){
 	    psf=true
 	else
 	    psf=false 
-	    ui_print "-  Non product" && ps=0
+	    ui_print "-  NON product" && ps=0
 	fi
 	if [ -f $home/imgs/system_ext$newslot.img ] ; then 
 	    sss=$(stat -c%s $home/imgs/system_ext$newslot.img)
 	    sssf=true
 	else 
 	    sssf=false
-	    ui_print "-  Non system_ext" && sss=0
+	    ui_print "-  NON system_ext" && sss=0
 	fi
 	if [ -f $home/imgs/odm$newslot.img ] ; then 
 	    odms=$(stat -c%s $home/imgs/odm$newslot.img)
-	else ui_print "-  Non odm" && odms=0
+	else ui_print "-  NON odm" && odms=0
 	fi
 
 	#ui_print "-  $Ss $vs $ss $ps $sss $odms"
@@ -688,26 +708,26 @@ RUN_ALL_RW(){
 	echo "  -  $ssfree $tfs"
 	if [ $tfs -gt 1 ] ; then
 	    if $psf && $sssf ; then
-	    	ui_print "-  Full complect"
+	    	#ui_print "-  Full complect"
 	        nss=$( calc "$ssfree/3" )
 	        nvs=$( calc "($ssfree-$nss)/3" )
 	        nps=$( calc "($ssfree-$nss-$nvs)/2" )
 	        nsss=$( calc "$ssfree-$nss-$nvs-$nps" )
 	    fi
 	    if ! $psf && $sssf ; then
-	    	ui_print "-  NON product"
+	    	#ui_print "-  NON product"
 	        nss=$( calc "$ssfree/3" )
 	        nvs=$( calc "($ssfree-$nss)/2" )
 	        nsss=$( calc "$ssfree-$nss-$nvs" )
 	    fi
 	    if $psf && ! $sssf ; then
-	    	ui_print "- NON system_ext"
+	    	#ui_print "- NON system_ext"
 	        nss=$( calc "$ssfree/3" )
 	        nvs=$( calc "($ssfree-$nss)/2" )
 	        nps=$( calc "$ssfree-$nss-$nvs" )
 	    fi
 	    if ! $psf && ! $sssf ; then 
-	    	ui_print "-  NON product and system_ext"
+	    	#ui_print "-  NON product and system_ext"
 	        nss=$( calc "$ssfree/2" )
 	        nvs=$( calc "$ssfree-$nss" )
 	    fi
@@ -864,26 +884,22 @@ RUN_FLASH_ZIPS(){
 	for install in $( echo -e "$listADDzip" ) ; do
 		mkdir -pv /tmp/addzip/$( basename ${install%.zip*} )
 		unzip -o "$install" "META-INF/com/google/android/update-binary" -d /tmp/addzip/$( basename ${install%.zip*} )/
-		ui_print "************************************"		
-		ui_print "************************************"
-		ui_print "------------------------------------"
+		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
+		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 		ui_print "-  FLASHING $( basename $install )"
-		ui_print "------------------------------------"
-		ui_print "************************************"
-		ui_print "************************************"
+		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
+		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 		chmod 777 /tmp/addzip/$( basename ${install%.zip*} )/META-INF/com/google/android/update-binary
 		RUN_ALL_MAUNT --umount
 		RUN_MOUNT_SUPER --umount-super
 		RUN_MOUNT_SUPER --mount-super
 		/tmp/addzip/$( basename ${install%.zip*} )/META-INF/com/google/android/update-binary $arg1 $arg2 "$install"		
 	done
-		ui_print "************************************"		
-		ui_print "************************************"
-		ui_print "------------------------------------"
+		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
+		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 		ui_print "-  Complect installing all additional zips "
-		ui_print "------------------------------------"
-		ui_print "************************************"		
-		ui_print "************************************"
+		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
+		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	}
 
 
