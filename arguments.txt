@@ -7,12 +7,8 @@ Arguments             PARAMETRS ( example "yes" or "no" )
 MAKERW                "no"
 DFE                   "no"
 REFLASH RECOVERY      "no"
-FLASH MAGISK          "no"
 FLASH RECOVERY        "no"
 FLASH ROM             "no"
-FLASH KERNEL          "no"
-FLASH FIRMWARE        "no"
-FLASH CUSTOM IMG      "no"
 FLASH ADDITIONAL ZIPS "no"
 
 
@@ -33,15 +29,12 @@ Arguments             PARAMETRS ( example "/sdcard/folder/folder/filename.img/ra
 
 Path ROM              ""
 Path Recovery         ""
-Path Magisk           ""
-Path Kernel           ""
-Path Firmware         ""
 
 ##################################################################################################
 
-!!!!!! Do not use to install Magisk|Recovery|Rom|Kernel|Firmware in this block !!!!!!
+!!!!!! Do not use to install Recovery or Rom in this block !!!!!!
 
-Arguments             PARAMETRS ( example "Gapps.zip" ) 
+Arguments             PARAMETRS ( example "Gapps.zip" or "magisk.zip" or "kernel.zip" ) 
 Arguments             PARAMETRS ( example "/sdcard/folder/folder/filename.zip" )
 
 Path additional zips  ""
@@ -53,21 +46,22 @@ Path additional zips  ""
 Path additional zips  ""
 Path additional zips  ""
 Path additional zips  ""
-
-
-##################################################################################################
-
-If u need flashing custom img "except vednor.img|system_ext.img|system.img|product.img|odm.img|super.img"
-!!!!!At your risk, the correct operation of the ROM is not guaranteed.!!!!!
-	
-Arguments		      PARAMETRS ( example "filenme.img" -> "vendor_boot" )
-                      PARAMETRS ( example "/sdcard/folder/filenme.img" -> "vendor_boot" )
-
-Path custom.img       " " -> " " 
-Path custom.img       " " -> " " 
-Path custom.img       " " -> " " 
-Path custom.img       " " -> " " 
-Path custom.img       " " -> " " 
-Path custom.img       " " -> " " 
-Path custom.img       " " -> " " 
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
+Path additional zips  ""
 
