@@ -190,9 +190,7 @@ RUN_ARG_CHECK(){
 
 RUN_LOGO(){
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
-	ui_print " "
 	ui_print "-  Home folder $home"
-	ui_print " "
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	ui_print " "
 	ui_print "-  $MFPAPP"
@@ -217,29 +215,20 @@ RUN_LOGO(){
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------" ; fi
 	ui_print " "
 	if $flashrom ; then
-		ui_print " "
 	ui_print "------******!!!!!!!!ROM!!!!!!!!!******-------"
-	ui_print " "
 	ui_print "-  $( basename $romzip )"
-	ui_print " "
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	fi
 	if $flashrec ; then
-		ui_print " "
 	ui_print "------******!!!!!!RECOVERY!!!!!!******-------"
-	ui_print " "
 	ui_print "-  $( basename $reczip  )"
-	ui_print " "
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	fi
 	if $flashADDzip ; then 
-		ui_print " "
 		ui_print "------******!!ADDITIONAL ZIPS!!!******-------"
-		ui_print " "
 		for name in $( echo -e "$listADDzip" ) ; do
 			ui_print "-  $( basename $name )"
 		done
-		ui_print " "
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	fi
 	}
@@ -257,78 +246,76 @@ RUN_MOUNT_SUPER(){
 	block_product=$( grep "/product" /etc/fstab | awk '{ print $1 }' )
 	block_odm=$( grep "/odm" /etc/fstab | awk '{ print $1 }' )
 
-	# system_back=false
-	# if [[ $block_system == system ]] ; then 
-	# 	line_block_system=$( grep "/system_root" /etc/fstab )
-	# 	new_line_block_system=$( grep "/system_root" /etc/fstab | awk '{ print "/dev/block/dm-15 "$2" "$3" "$4" "$5" "$6 }')
-	# 	sed -i 's|'$line_block_system'|'$new_line_block_system'|' /etc/fstab 
-	# 	block_system=/dev/block/dm-15 ; system_back=true
-	# fi
-	# system_ext_back=false
-	# if [[ $block_system_ext == system_ext ]] ; then 
-	# 	line_block_system_ext=$( grep "/system_ext" /etc/fstab )
-	# 	new_line_block_system_ext=$( grep "/system_ext" /etc/fstab | awk '{ print "/dev/block/dm-16 "$2" "$3" "$4" "$5" "$6 }')
-	# 	sed -i 's|'$line_block_system_ext'|'$new_line_block_system_ext'|' /etc/fstab 
-	# 	block_system_ext=/dev/block/dm-16 ; system_ext_back=true
-	# fi
-	# vendor_back=false
-	# if [[ $block_vendor == vendor ]] ; then 
-	# 	line_block_vendor=$( grep "/vendor" /etc/fstab )
-	# 	new_line_block_vendor=$( grep "/vendor" /etc/fstab | awk '{ print "/dev/block/dm-17 "$2" "$3" "$4" "$5" "$6 }')
-	# 	sed -i 's|'$line_block_vendor'|'$new_line_block_vendor'|' /etc/fstab 
-	# 	block_vendor=/dev/block/dm-17 ; vendor_back=true
-	# fi
-	# product_back=false
-	# if [[ $block_product == product ]] ; then 
-	# 	line_block_product=$( grep "/product" /etc/fstab )
-	# 	new_line_block_product=$( grep "/product" /etc/fstab | awk '{ print "/dev/block/dm-18 "$2" "$3" "$4" "$5" "$6 }')
-	# 	sed -i 's|'$line_block_product'|'$new_line_block_product'|' /etc/fstab 
-	# 	block_product=/dev/block/dm-18 ; product_back=true
-	# fi
-	# odm_back=false
-	# if [[ $block_odm == odm ]] ; then 
-	# 	line_block_odm=$( grep "/odm" /etc/fstab )
-	# 	new_line_block_odm=$( grep "/odm" /etc/fstab | awk '{ print "/dev/block/dm-19 "$2" "$3" "$4" "$5" "$6 }')
-	# 	sed -i 's|'$line_block_odm'|'$new_line_block_odm'|' /etc/fstab 
-	# 	block_odm=/dev/block/dm-19 ; odm_back=true
-	# fi
+	system_back=false
+	if [[ $block_system == system ]] ; then 
+		line_block_system=$( grep "/system_root" /etc/fstab )
+		new_line_block_system=$( grep "/system_root" /etc/fstab | awk '{ print "/dev/block/dm-15 "$2" "$3" "$4" "$5" "$6 }')
+		sed -i 's|'$line_block_system'|'$new_line_block_system'|' /etc/fstab 
+		block_system=/dev/block/dm-15 ; system_back=true
+	fi
+	system_ext_back=false
+	if [[ $block_system_ext == system_ext ]] ; then 
+		line_block_system_ext=$( grep "/system_ext" /etc/fstab )
+		new_line_block_system_ext=$( grep "/system_ext" /etc/fstab | awk '{ print "/dev/block/dm-16 "$2" "$3" "$4" "$5" "$6 }')
+		sed -i 's|'$line_block_system_ext'|'$new_line_block_system_ext'|' /etc/fstab 
+		block_system_ext=/dev/block/dm-16 ; system_ext_back=true
+	fi
+	vendor_back=false
+	if [[ $block_vendor == vendor ]] ; then 
+		line_block_vendor=$( grep "/vendor" /etc/fstab )
+		new_line_block_vendor=$( grep "/vendor" /etc/fstab | awk '{ print "/dev/block/dm-17 "$2" "$3" "$4" "$5" "$6 }')
+		sed -i 's|'$line_block_vendor'|'$new_line_block_vendor'|' /etc/fstab 
+		block_vendor=/dev/block/dm-17 ; vendor_back=true
+	fi
+	product_back=false
+	if [[ $block_product == product ]] ; then 
+		line_block_product=$( grep "/product" /etc/fstab )
+		new_line_block_product=$( grep "/product" /etc/fstab | awk '{ print "/dev/block/dm-18 "$2" "$3" "$4" "$5" "$6 }')
+		sed -i 's|'$line_block_product'|'$new_line_block_product'|' /etc/fstab 
+		block_product=/dev/block/dm-18 ; product_back=true
+	fi
+	odm_back=false
+	if [[ $block_odm == odm ]] ; then 
+		line_block_odm=$( grep "/odm" /etc/fstab )
+		new_line_block_odm=$( grep "/odm" /etc/fstab | awk '{ print "/dev/block/dm-19 "$2" "$3" "$4" "$5" "$6 }')
+		sed -i 's|'$line_block_odm'|'$new_line_block_odm'|' /etc/fstab 
+		block_odm=/dev/block/dm-19 ; odm_back=true
+	fi
+
 
 
 	for img in $block_system $block_system_ext $block_vendor $block_product $block_odm ; do 
 		mv $img "${img}.bak"
 	done
 
-	mknod /dev/block/fk_system b 7 200
-	loop_system=/dev/block/fk_system #/dev/block/fake-system ; nam_device=$( calc $nam_device+10 )
+
+	loop_system=$( losetup -f ) #/dev/block/fake-system ; nam_device=$( calc $nam_device+10 )
 	#mknod $loop_system b 7 $nam_device
 	losetup $loop_system $home/imgs/system$newslot.img
 	ln -s $loop_system $block_system
 
-	mknod /dev/block/fk_vendor b 7 201
-	loop_vendor=/dev/block/fk_vendor #/dev/block/fake-vendor ; nam_device=$( calc $nam_device+10 )
+
+	loop_vendor=$( losetup -f ) #/dev/block/fake-vendor ; nam_device=$( calc $nam_device+10 )
 	#mknod $loop_vendor b 7 $nam_device
 	losetup $loop_vendor $home/imgs/vendor$newslot.img
 	ln -s $loop_vendor $block_vendor
 
 	if [[ -f $home/imgs/system_ext$newslot.img ]] ; then
-		mknod /dev/block/fk_system_ext b 7 202
-		loop_system_ext=/dev/block/system_ext #/dev/block/fake-system-ext ; nam_device=$( calc $nam_device+10 )
+		loop_system_ext=$( losetup -f ) #/dev/block/fake-system-ext ; nam_device=$( calc $nam_device+10 )
 		#mknod $loop_system_ext b 7 $nam_device 
 		losetup $loop_system_ext $home/imgs/system_ext$newslot.img
 		ln -s $loop_system_ext $block_system_ext
 	fi
 
 	if [[ -f $home/imgs/product$newslot.img ]] ; then
-		mknod /dev/block/fk_product b 7 203
-		loop_product=/dev/block/fk_product #/dev/block/fake-product ; nam_device=$( calc $nam_device+10 )
+		loop_product=$( losetup -f ) #/dev/block/fake-product ; nam_device=$( calc $nam_device+10 )
 		#mknod $loop_product b 7 $nam_device
 		losetup $loop_product $home/imgs/product$newslot.img
 		ln -s $loop_product $block_product
 	fi
 
 	if [[ -f $home/imgs/odm$newslot.img ]] ; then
-		mknod /dev/block/fk_odm b 7 204
-		loop_odm=/dev/block/fk_odm #/dev/block/fake-odm ; nam_device=$( calc $nam_device+10 )
+		loop_odm=$( losetup -f ) #/dev/block/fake-odm ; nam_device=$( calc $nam_device+10 )
 		#mknod $loop_odm b 7 $nam_device
 		losetup $loop_odm $home/imgs/odm$newslot.img
 		ln -s $loop_odm $block_odm
@@ -367,22 +354,22 @@ RUN_MOUNT_SUPER(){
 			else
 				umount /system_root ; umount /vendor ; umount /product ; umount /system_ext ; umount /odm
 				
-				# if $system_ext_back ; then
-				# 	sed -i 's|'$new_line_block_system_ext'|'$line_block_system_ext'|' /etc/fstab 
-				# fi
-				# if $system_back ; then 
-				# 	sed -i 's|'$new_line_block_system'|'$line_block_system'|' /etc/fstab 
-				# fi
-				# if $vendor_back ; then
-				# 	sed -i 's|'$new_line_block_vendor'|'$line_block_vendor'|' /etc/fstab 
-				# fi
-				# if $product_back ; then
-				# 	sed -i 's|'$new_line_block_product'|'$line_block_product'|' /etc/fstab 
-				# fi
-				# if $odm_back ; then 
-				# 	sed -i 's|'$new_line_block_odm'|'$line_block_odm'|' /etc/fstab 
-				# fi
-				rm -f /dev/block/fk_*
+				if $system_ext_back ; then
+					sed -i 's|'$new_line_block_system_ext'|'$line_block_system_ext'|' /etc/fstab 
+				fi
+				if $system_back ; then 
+					sed -i 's|'$new_line_block_system'|'$line_block_system'|' /etc/fstab 
+				fi
+				if $vendor_back ; then
+					sed -i 's|'$new_line_block_vendor'|'$line_block_vendor'|' /etc/fstab 
+				fi
+				if $product_back ; then
+					sed -i 's|'$new_line_block_product'|'$line_block_product'|' /etc/fstab 
+				fi
+				if $odm_back ; then 
+					sed -i 's|'$new_line_block_odm'|'$line_block_odm'|' /etc/fstab 
+				fi
+
 				for img in $block_system $block_system_ext $block_vendor $block_product $block_odm ; do 
 					rm $img
 					mv ${img}.bak $img
