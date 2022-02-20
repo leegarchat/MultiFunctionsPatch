@@ -13,12 +13,26 @@ set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-BETA-4.1.9d"
+MFPAPP="MFP-BETA-4.1.10"
+RUN_ABORT(){
+	RUN_ALL_MAUNT --umount
+	RUN_MOUNT_SUPER --umount-super
+	RUN_MOUNT_SUPER --umount-fw
+	cp /tmp/*.log $home/
+	cp /tmp/*.txt $home/
+	find $home/ -name "*.txt" -name "*.log" -exec tar -cvpf  $home/logs.tar {} \; ) 
+	for print in $2 $3 $4 $5 $6 $7 $8 ; do
+	! [[ -z $print ]] && ui_print "-  $print"
+	done
+	ui_print "-  Send $home/logs.tar file in group @PocoF3DFE or me PM @LeeGarChat"
+	ui_print "-  Your installed system shouldn't have gone bad"
+	ui_print "-  But the new system/patch is not installed"
+	exit $1
+	}
 if ( echo "$( dirname "$arg3" )" | grep ' ' ) || ( echo "$arg3" | grep ' ' ) ; then
-	ui_print "-  Please remove spaces from the path name"
-	ui_print "-  Bad path /sdcard/folder name/mfp.zip"
-	ui_print "-  Good path /sdcard/foldername/folder-name/mfp.zip"
-	exit 201
+	RUN_ABORT "3" "Please remove spaces from the path name" \
+	"Bad path /sdcard/folder name/mfp.zip" \
+	"Good path /sdcard/foldername/folder-name/mfp.zip"
 fi
 zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
 
@@ -47,11 +61,7 @@ else
 	if ( /tmp/bin/toybox mountpoint -q /usb_otg/ ) ; then 
 		home="/usb_otg/MFPAPP" 
 	else 
-		ui_print "-  Need OTG or mounted /sdcard/ for stable working" 
-		cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 66
+		RUN_ABORT "4" "Need OTG or mounted /sdcard/ for stable working" 
 	fi
 fi
 rm -rf $home
@@ -62,7 +72,7 @@ mkdir -pv $home ; mkdir -pv $home/payload
 mkdir -pv $home/imgs ; mkdir -pv $home/super ; mkdir -pv $home/nonsuper 
 mkdir -pv $home/newdatsuper ; mkdir -pv $home/fw ; mkdir -pv $home/newdat
 n=1
-
+[[ -d $home ]] || RUN_ABORT "21" "Cant creat $home folder"
 
 RUN_READ_ARG(){
 	for remove in $( grep "\"/storage/" $arguments ) ; do
@@ -84,6 +94,8 @@ RUN_READ_ARG(){
 		newslot="$slot_ab" ; fi
 
 	( grep "MAKERW" "$arguments" | grep -i "yes" ) && flashrw=true || flashrw=false
+
+	( grep "HIDE NOT ENCRYPTED" "$arguments" | grep -i "yes" ) && hide_no_encrypted=true || hide_no_encrypted=false
 
 	( grep "DFE" "$arguments" | grep -i "yes" ) && flashdfe=true || flashdfe=false
 
@@ -111,33 +123,33 @@ RUN_READ_ARG(){
 			if ( echo $name_rom | grep "/" ) ; then romzip=$name_rom
 			else romzip="$zipfolder/$name_rom" ; fi
 			if [[ -f $romzip ]] ; then flashrom=true
-			else ui_print "-  Not find $romzip" ; cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 147 ; fi ; fi
+			else 
+			RUN_ABORT "5" "Not find $romzip"
+		fi ; fi
 	else flashrom=false ; fi
 
 	if ( grep "FLASH ADDITIONAL ZIPS" "$arguments" | grep -i "yes" ) ; then
 		for list in $( grep -i "Path additional zips" "$arguments" ) ; do 
 			list=$( echo "$list" | grep -q "\.zip" && echo $list ; echo "$list" | grep -q "\.apk" && echo $list ) 
 			name_ADDzip=${list#*\"} ; name_ADDzip=${name_ADDzip%%\"*}
-			( echo ${name_ADDzip%Path additional zips*} | grep '#' ) && continue
-			if [[ -z $name_ADDzip ]] ; then 
-				continue 
+			if ( echo ${name_ADDzip%Path additional zips*} | grep '#' ) ; then 
+				continue
 			else
-				if ( echo $name_ADDzip | grep "/" ) ; then 
-					ADDzip=$name_ADDzip
-				else 
-					ADDzip="$zipfolder/$name_ADDzip" 
+				if [[ -z $name_ADDzip ]] ; then 
+					continue 
+				else
+					if ( echo $name_ADDzip | grep "/" ) ; then 
+						ADDzip=$name_ADDzip
+					else 
+						ADDzip="$zipfolder/$name_ADDzip" 
+					fi
+					if [[ -f $ADDzip ]] ; then 
+						listADDzip="$listADDzip\n$ADDzip"
+					else 
+						
+						RUN_ABORT "6" "Not find $ADDzip" 
+					fi 
 				fi
-				if [[ -f $ADDzip ]] ; then 
-					listADDzip="$listADDzip\n$ADDzip"
-				else ui_print "-  Not find $ADDzip" 
-					cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 149 
-				fi 
 			fi
 		done
 		if ( echo -e "$listADDzip" | grep "/" ) ; then flashADDzip=true ; else flashADDzip=false ; fi
@@ -150,10 +162,9 @@ RUN_READ_ARG(){
 			if ( echo $name_rec | grep "/" ) ; then reczip=$name_rec
 			else reczip="$zipfolder/$name_rec" ; fi
 			if [[ -f $reczip ]] ; then flashrec=true
-			else ui_print "-  Not find $reczip" ; cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 140 ; fi ; fi
+			else
+				RUN_ABORT "7" "Not find $reczip"
+			fi ; fi
 	else flashrec=false ; fi
 
 	if ( grep "RECOVERY REFLASH" "$arguments" | grep -i "yes" ) ; then 
@@ -163,34 +174,26 @@ RUN_READ_ARG(){
 				mkdir -pv /tmp/bin/twrp/
 				cpio -H newc -o < /ramdisk-files.txt > /tmp/bin/twrp/ramdisk.cpio
 			else
-				ui_print "-  Ramdisk files have been modified, unable to create ramdisk to flash, fastboot boot twrp or reboot twrp and try again flash mfp with options RECOVERY REFLASH"
-				cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 99
+				RUN_ABORT "8" "Ramdisk files have been modified, unable \
+				to create ramdisk to flash, fastboot boot twrp or reboot \
+				twrp and try again flash mfp with options RECOVERY REFLASH"
 			fi
 		else reflashrec=false
 		fi
 	else reflashrec=false ; fi
 
 	}
-
 RUN_ARG_CHECK(){ 
 	if ! $flashrom && ! $flashrec && ! $flashdfe && ! $flashrw && ! $flashADDzip ; then 
-		ui_print "-  No arguments"
-		ui_print "- Copy .zip name in arguments.txt into .zip files or creat near .zip arguments.txt and rename fmp to ARGOUT-MFP.zip"
-		cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 49
+		RUN_ABORT "9" "No arguments" "Copy .zip name in arguments.txt into .zip files or creat near .zip arguments.txt and rename fmp to ARGOUT-MFP.zip"
 	else
 		RUN_LOGO
 	fi
 	}
-
 RUN_LOGO(){
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	ui_print "-  Home folder $home"
+
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	ui_print " "
 	ui_print "-  $MFPAPP"
@@ -210,18 +213,22 @@ RUN_LOGO(){
 	ui_print "-  WIPE DATA AFTER FLASHING: $( $wipedata && echo "YES" || echo "NO" )"
 	ui_print "-  REMOVE MFPAPP FOLDER AFTER FLASHING: $( $delhome && echo "YES" || echo "NO" )"
 	ui_print "-  REBOOT AFTER FLASHING: $( $rebootafter && echo "YES : $rebootARG" || echo "NO" )"
-	ui_print " "
+	ui_print "-  HIDE NOT ENCRYPTED: $( $hide_no_encrypted && echo "YES || echo "NO" )"
 	if ! $flashADDzip && ! $flashrom && ! $flashrec ; then 
+		ui_print " "
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------" ; fi
-	ui_print " "
 	if $flashrom ; then
+		ui_print " "
 	ui_print "------******!!!!!!!!ROM!!!!!!!!!******-------"
 	ui_print "-  $( basename $romzip )"
+	ui_print " "
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	fi
 	if $flashrec ; then
+	ui_print " "
 	ui_print "------******!!!!!!RECOVERY!!!!!!******-------"
 	ui_print "-  $( basename $reczip  )"
+	ui_print " "
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	fi
 	if $flashADDzip ; then 
@@ -229,10 +236,10 @@ RUN_LOGO(){
 		for name in $( echo -e "$listADDzip" ) ; do
 			ui_print "-  $( basename $name )"
 		done
+		ui_print " "
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	fi
 	}
-
 RUN_MOUNT_SUPER(){ 
 	bakblock="/dev/block/backup/"
 
@@ -283,7 +290,8 @@ RUN_MOUNT_SUPER(){
 	fi
 
 
-
+	if [[ -z $block_system ]] && [[ -z $block_vendor ]] ; then 
+		RUN_ABORT "28" "Something wrong: error 28"
 	for img in $block_system $block_system_ext $block_vendor $block_product $block_odm ; do 
 		mv $img "${img}.bak"
 	done
@@ -346,11 +354,7 @@ RUN_MOUNT_SUPER(){
 			if $extsuper ; then 
 				RUN_ALL_MAUNT --umount
 			if [[ -z $block_system ]] ; then 
-				ui_print " Something wrong: error 221"
-				cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 221
+				RUN_ABORT "10" "Something wrong: error 10"
 			else
 				umount /system_root ; umount /vendor ; umount /product ; umount /system_ext ; umount /odm
 				
@@ -395,7 +399,6 @@ RUN_MOUNT_SUPER(){
 			;;	 
 	esac
 	}
-
 RUN_MAKE_SUPER(){
 	ui_print "-  Make new super partition"
     ms=$(grep -F "Metadata max size:" $LPDUMP | awk '{print $4}')
@@ -423,14 +426,11 @@ RUN_MAKE_SUPER(){
     fi
 
 	}	
-
 RUN_SINGL_STRUCTURES(){
 	ui_print "-  Starting SINGL STRUCTURES"
 	ui_print "-  Unpack $romzip wait..."
 	if [[ $1 == "54" ]] ; then 
-		7za e "$romzip" -o$home/newdat/ "*.new.dat*" -y -r -mmt8
-		7za e "$romzip" -o$home/newdat/ "*.transfer.list" -y -r -mmt8
-		7za e "$romzip" -o$home/newdat/ "*.img" -y -r -mmt8
+		7za e "$romzip" -o$home/newdat/ "*.new.dat*" "*.transfer.list" "*.img" -y -r -mmt8 >> $home/7zip.txt
 		for fwimgs in $( find $home/newdat/*.img ) ; do
 	        mv $fwimgs $home/fw/
 	    done
@@ -450,9 +450,7 @@ RUN_SINGL_STRUCTURES(){
 	    done
 	    rm -f $home/newdat/*
 	elif [[ $1 == "56" ]] ; then 
-		7za e "$romzip" -o$home/newdatsuper/ "*.new.dat*" -y -r -mmt8
-		7za e "$romzip" -o$home/newdatsuper/ "*.transfer.list" -y -r -mmt8
-		7za e "$romzip" -o$home/newdatsuper/ "*.img" -y -r -mmt8
+		7za e "$romzip" -o$home/newdatsuper/ "*.new.dat*" "*.transfer.list" "*.img" -y -r -mmt8 >> $home/7zip.txt
 		for fwimgs in $( find $home/newdatsuper/*.img ) ; do
 	        mv $fwimgs $home/fw/
 	    done
@@ -483,15 +481,11 @@ RUN_SINGL_STRUCTURES(){
 		    done
 		    rm $home/newdatsuper/super.img
 		else
-			ui_print "-  Something wrong: error 62"
-			cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 62
+			RUN_ABORT "11" "Something wrong: error 11"
 		fi
 	    rm -f $home/newdatsuper/*
 	elif [[ $1 == "53" ]] ; then
-		7za e "$romzip" -o$home/super/ "*.img" -y -r -mmt8
+		7za e "$romzip" -o$home/super/ "*.img" -y -r -mmt8 >> $home/7zip.txt
         for img in $( find $home/super/*.img ) ; do
             if ( zstd -l $img ) ; then 
                 zstd -c -d $img > ${img%.img*}.d.img && rm -f $img && mv ${img%.img*}.d.img $img
@@ -514,7 +508,7 @@ RUN_SINGL_STRUCTURES(){
 	        mv $fwimgs $home/fw/
 	    done
 	elif [[ $1 == "52" ]] ; then 
-		7za e "$romzip" -o$home/nonsuper/ "*.img" -y -r -mmt8
+		7za e "$romzip" -o$home/nonsuper/ "*.img" -y -r -mmt8 >> $home/7zip.txt
         for img in $( find $home/nonsuper/*.img ) ; do
             if ( zstd -l $img ) ; then 
                 zstd -c -d $img > ${img%.img*}.d.img && rm -f $img && mv ${img%.img*}.d.img $img
@@ -548,7 +542,7 @@ RUN_SINGL_STRUCTURES(){
 	        mv $fwimgs $home/fw/
 	    done
 	elif [[ $1 == "55" ]] ; then 
-		7za e "$romzip" -o$home/ "payload.bin" -y -r -mmt8
+		7za e "$romzip" -o$home/ "payload.bin" -y -r -mmt8 >> $home/7zip.txt
 		pydump -c 8 -o $home/payload/ "$home/payload.bin"
 		rm -f $home/payload.bin
 	    for bootimgs in vendor_boot boot ; do  
@@ -571,19 +565,18 @@ RUN_SINGL_STRUCTURES(){
 			rm -f $img ; mv $( dirname $img )/$( basename ${img%.img*} ).raw.img $img
 		fi
 	done
+	if ! [[ -f $home/imgs/vendor$newslot.img ]] && ! [[ -f $home/imgs/vendor$newslot.img ]] ; then 
+		RUN_ABORT "27" "Something wrong: error 27"
+	fi
+	( grep "Unexpected end of archive" $home/7zip.txt ) && RUN_ABORT "26" "You $( basename $romzip ) damaged, you need to redownload it"
 	}
-
 RUN_DUMP_PART(){
 	if [ $(/tmp/bin/toybox df $home | awk ' NR==2 { if ($4 > 15843545) print "1" }') == "1" ] ; then 
 		ui_print "-  Size normal: $( calc "$( /tmp/bin/toybox df $home | awk ' NR==2 { print $4 }' )/1024" )MB"
 	else
-		ui_print "-  Not enough free space"
-		ui_print "-  you have $( calc "$( /tmp/bin/toybox df $home | awk ' NR==2 { print $4 }' )/1024/1024" )GB"
-		ui_print "-  Need 15~gb free space"
-		cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 101
+		RUN_ABORT "12" "Not enough free space" \
+		"you have $( calc "$( /tmp/bin/toybox df $home | awk ' NR==2 { print $4 }' )/1024/1024" )GB" \
+		"Need 15~gb free space"
 	fi
 	ui_print "-  Starting dumping partition"
 	for part in $(find /dev/block/mapper/*$newslot) ; do
@@ -591,7 +584,6 @@ RUN_DUMP_PART(){
 		dd if=$part of=$home/imgs/$(basename $part).img
 	done
 	}
-
 RUN_ALL_MAUNT(){
 	for mnt in vendor system_root odm system_ext product ; do
 		case "$1" in
@@ -606,18 +598,13 @@ RUN_ALL_MAUNT(){
 		esac
 	done
 	}
-
 RUN_CHECK_ROM(){
 		if [[ $( /tmp/bin/toybox df $home | awk ' NR==2 { if ($4 > 25843545) print "1" }' ) == "1" ]] ; then
 			ui_print "-  Size normal: $( calc "$( /tmp/bin/toybox df $home | awk ' NR==2 { print $4 }' )/1024" )MB"
 		else
-			ui_print "-  Not enough free space"
-			ui_print "-  You have $( calc ""$( /tmp/bin/toybox df $home | awk ' NR==2 { print $4 }' )"/1024/1024" )GB"
-			ui_print "-  Need 24gb free space"
-			cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 101
+			RUN_ABORT "13" "Not enough free space" \
+			"You have $( calc ""$( /tmp/bin/toybox df $home | awk ' NR==2 { print $4 }' )"/1024/1024" )GB" \
+			"Need 24gb free space"
 		fi
 		if [[ -f $romzip ]] && $flashrom ; then
 		    #ui_print "-  $romzip find"
@@ -655,14 +642,9 @@ RUN_CHECK_ROM(){
 		        fi
 		    fi
 		else 
-		    ui_print "-  $romzip not find"
-		    cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 105
+		    RUN_ABORT "14" "$romzip not find"
 		fi
 	}
-
 RUN_DFE(){
 	ui_print "-  Starting DFE patch"
 	sm8250=false
@@ -698,18 +680,12 @@ RUN_DFE(){
                     sm8250=true
                 fi
 			else
-				# Фстаб ушел в 0
-				ui_print "-  Something wrong: error 89"
-				ui_print "-  You need reflash rom"
-				cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 89
+				RUN_ABORT "15" "You need reflash rom" \
+				"Something wrong: error 15"
 			fi
 		fi
 	done
 	}
-
 RUN_CHECK_RW(){
 	for mnt in /system_root/system /vendor/etc ; do 
 		echo "test test test TEST TESTR TEST" >> $mnt/test.txt
@@ -721,7 +697,6 @@ RUN_CHECK_RW(){
 	done
 	return 40
 	}
-
 RUN_RW(){
 	asdf=$( basename $1 )
 	umount /tmp/$( basename ${asdf%.img*} )
@@ -734,7 +709,6 @@ RUN_RW(){
 	resize2fs -f -M $1
 
 	}
-
 RUN_RWS(){
 	asdf=$( basename $1 )
 	umount /tmp/$( basename $1 )
@@ -746,7 +720,6 @@ RUN_RWS(){
 	resize2fs -f $1 ${new_size}s
 
 	}
-
 RUN_RECOVERY_REFLASH(){
 	ui_print "-  Starting recovery reflash"
 	dd if=/dev/block/by-name/boot$slot_ab of=/tmp/bin/boot.img
@@ -758,7 +731,6 @@ RUN_RECOVERY_REFLASH(){
 	dd if=/tmp/bin/new-boot.img of=/dev/block/by-name/boot$slot_ab
 	rm -rf "twrp" "ramdisk*" "*.img" "kernel*"
 	}
-
 RUN_FINAL(){
 	if [ $newslot == $slot_ab ] ; then
 		avbctl --force disable-verity 
@@ -836,8 +808,10 @@ RUN_FINAL(){
 		fi
 		exit 0 
 	}
-
 RUN_ALL_RW(){
+	if ! [[ -f $home/imgs/vendor$newslot.img ]] && ! [[ -f $home/imgs/system$newslot.img ]] ; then
+		RUN_ABORT "24" "Something wrong: error 24"
+	fi
 	ui_print "-  Give RW for all partition"
 	for img_rw in vendor system_ext product system ; do
 		[[ -f $home/imgs/$img_rw$newslot.img ]] && RUN_RW "$home/imgs/$img_rw$newslot.img"
@@ -903,7 +877,6 @@ RUN_ALL_RW(){
 
 	fi
 	}
-
 RUN_RECOVERY_FLASH(){
 		ui_print "-  Starting recovery Flashing $( basename $reczip )"
 		if [[ -f $reczip ]] ; then 
@@ -937,7 +910,6 @@ RUN_RECOVERY_FLASH(){
 			retpop=41
 		fi
 		}	
-
 RUN_INIT_PATCH(){
 	gon=false
 	finit=$(grep -n -x "on init" /system_root/system/etc/init/hw/init.rc | awk '{print int($1)}')
@@ -950,7 +922,6 @@ RUN_INIT_PATCH(){
 	    grep -F "ro.crypto.state" /system_root/system/etc/init/hw/init.rc && sed -i '/ro.crypto.state/d' /system_root/system/etc/init/hw/init.rc && gon=true && sed -i "${finit}i \    setprop ro.crypto.state encrypted" /system_root/system/etc/init/hw/init.rc
 		! $gon && sed -i "${finit}i \	setprop ro.crypto.state encrypted" /system_root/system/etc/init/hw/init.rc
 	}
-
 RUN_BOOT_PATCH(){
 	ui_print "-  Starting boot patching"
 	dd if=/dev/block/by-name/boot$1 of=/tmp/bin/boot.img
@@ -970,7 +941,6 @@ RUN_BOOT_PATCH(){
 	rm -rf "twrp" "ramdisk*" "*.img" "kernel*"
 
 	}
-
 RUN_VENDORBOOT_PATCH(){
 	ui_print "-  Starting vendor_boot patch"
 	mkdir -pv /tmp/bin/vendor_boot
@@ -985,7 +955,6 @@ RUN_VENDORBOOT_PATCH(){
 	rm -rf "vendor_boot"
 
 	}
-
 RUN_FW_FLASH(){
 	ui_print "-  Starting Flashing FW"
 	if $flashfw ; then 
@@ -996,7 +965,6 @@ RUN_FW_FLASH(){
 		done
 	fi
 	}
-
 RUN_RECOVERY_FLASH_SM8250(){
 	ui_print "-  Starting Flashing twrp vashy for SM8250"
 	dd if=/dev/block/by-name/boot$slot_ab of=/tmp/bin/boot.img
@@ -1009,10 +977,9 @@ RUN_RECOVERY_FLASH_SM8250(){
 	dd if=/tmp/bin/new-boot.img of=/dev/block/by-name/boot$slot_ab
 	rm -rf "twrp" "ramdisk*" "*.img" "kernel*"
 	}
-
 RUN_POST_PATCH(){
 	if ( $flashrec && ! $reflashrec ) || ( $flashrec && $reflashrec ) ; then 
-		if $sm8250 ; then 
+		if $sm8250 && ( getprop ro.product.device | grep "alioth" ) ; then 
 			ui_print "-  Patching flash recvoery for SM8250"
 			RUN_RECOVERY_FLASH_SM8250 
 		else 
@@ -1020,7 +987,7 @@ RUN_POST_PATCH(){
 			RUN_RECOVERY_FLASH 
 		fi
 	elif ! $flashrec && $reflashrec ; then 
-		if $sm8250 ; then 
+		if $sm8250 && ( getprop ro.product.device | grep "alioth" ) ; then 
 			ui_print "-  Patching reflash recvoery for SM8250"
 			RUN_RECOVERY_FLASH_SM8250 
 		else 
@@ -1031,7 +998,6 @@ RUN_POST_PATCH(){
 	ui_print "-  Patching vendor_boot"
 	RUN_VENDORBOOT_PATCH $newslot
 	}
-
 RUN_RW_LITE(){
 	for mnt in vendor system odm system_ext product ; do
 		e2fsck -f /dev/block/mapper/${mnt}$slot_ab
@@ -1040,7 +1006,6 @@ RUN_RW_LITE(){
 	    resize2fs /dev/block/mapper/${mnt}$slot_ab
 	done 
 	}
-
 RUN_FLASH_ZIPS(){
 
 	for install in $( echo -e "$listADDzip" ) ; do
@@ -1065,6 +1030,7 @@ RUN_FLASH_ZIPS(){
 	}
 
 
+
 case $zipname in
 	*ARGOUT*)
 		arguments=$zipfolder/arguments.txt
@@ -1079,11 +1045,7 @@ RUN_READ_ARG
 RUN_ARG_CHECK
 
 if ( echo $( basename $romzip ) | grep '(' ) || ( echo $( basename $romzip ) | grep ')' ) ; then
-	ui_print "-  Remove \) or \( in rom name"
-	cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 77
+	RUN_ABORT "16" "Remove ) or ( in rom name"
 fi 
 LPDUMP="$home/lpdump.txt"
 lpdump --slot=$newslot >> $LPDUMP
@@ -1095,10 +1057,7 @@ else
 		rm -f $LPDUMP
 		lpdump --slot=$newslot >> $LPDUMP
 	else 
-		cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 36
+		RUN_ABORT "17"
 	fi
 fi 
 if $flashrom || $flashADDzip ; then
@@ -1135,16 +1094,12 @@ if ( [[ $permm == 41 ]] && ! $flashrom ) || ( $flashrw && ! $flashrom ) ; then
 				RUN_ALL_MAUNT --umount
 				RUN_MOUNT_SUPER --umount-super
 				RUN_MOUNT_SUPER --umount-fw
-				ui_print "-  Something wrong: 21"
-				cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 21
+				RUN_ABORT "18" "Something wrong: 18"
 			fi ; fi ; fi
 [[ -f /vendor/etc/fstab.sm8250 ]] && sm8250=true || sm8250=false
 
 $flashdfe && RUN_DFE "/vendor"
-$sm8250 && RUN_INIT_PATCH
+if $sm8250 || $hide_no_encrypted ; then RUN_INIT_PATCH ; fi
 RUN_POST_PATCH
 $flashADDzip && RUN_FLASH_ZIPS
 RUN_ALL_MAUNT --umount
@@ -1158,15 +1113,8 @@ if [[ $permm == 41 ]] || $flashrw || $flashrom ; then
 		RUN_FW_FLASH
 
 	else
-		ui_print "-  Something wrong: error 91"
-		cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 91
+		RUN_ABORT "19" "Something wrong: error 19"
 	fi
 fi
 RUN_FINAL
-cp /tmp/recovery.log $home/
-		cp /tmp/dmesg.log $home/
-		cp /tmp/logcat.log $home/
-		exit 0
+RUN_ABORT "0"
