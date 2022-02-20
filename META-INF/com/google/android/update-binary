@@ -20,7 +20,7 @@ RUN_ABORT(){
 	RUN_MOUNT_SUPER --umount-fw
 	cp /tmp/*.log $home/
 	cp /tmp/*.txt $home/
-	find $home/ -name "*.txt" -name "*.log" -exec tar -cvpf  $home/logs.tar {} \; ) 
+	find $home/ -name "*.txt" -name "*.log" -exec tar -cvpf  $home/logs.tar {} \; 
 	for print in $2 $3 $4 $5 $6 $7 $8 ; do
 	! [[ -z $print ]] && ui_print "-  $print"
 	done
