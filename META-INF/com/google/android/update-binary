@@ -205,7 +205,7 @@ RUN_LOGO(){
 	ui_print " "
 	ui_print "-  $MFPAPP"
 	ui_print "-  by @LeeGarChat"
-	ui_print "-  Telegram group @PocoF3DFE"
+	ui_print "-  Group @PocoF3DFE"
 	ui_print "-  Thanks for @ErenMetesarr"
 	ui_print " "
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
