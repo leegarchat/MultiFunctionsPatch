@@ -20,11 +20,18 @@ RUN_ABORT(){
 	RUN_MOUNT_SUPER --umount-fw
 	cp /tmp/*.log $home/
 	cp /tmp/*.txt $home/
-	find $home/ -name "*.txt" -name "*.log" -exec tar -cvpf  $home/logs.tar {} \; 
-	for print in $2 $3 $4 $5 $6 $7 $8 ; do
+	[[ -f $home/arguments.txt ]] || cp $zipfolder/arguments.txt $home/
+	f=""
+	for log in $( find $home/ -name "*.txt" ) $( find $home/ -name "*.log" ) ; do 
+		f="$f $log"
+	done
+	[[ -d $zipfolder/MFPLOGS ]] || rm -rf $zipfolder/MFPLOGS
+	mkdir $zipfolder/MFPLOGS
+	tar -cvpf  $zipfolder/MFPLOGS/logs.tar $f
+	for print in "$2" "$3" "$4" "$5" "$6" "$7" "$8" ; do
 	! [[ -z $print ]] && ui_print "-  $print"
 	done
-	ui_print "-  Send $home/logs.tar file in group @PocoF3DFE or me PM @LeeGarChat"
+	ui_print "-  Send $zipfolder/MFPLOGS/logs.tar file in group @PocoF3DFE or me PM @LeeGarChat"
 	ui_print "-  Your installed system shouldn't have gone bad"
 	ui_print "-  But the new system/patch is not installed"
 	exit $1
@@ -648,7 +655,8 @@ RUN_DFE(){
 	ui_print "-  Starting DFE patch"
 	sm8250=false
 	size_c=false
-	path_to=$1
+	fstab_here=false
+	path_to=/vendor
 	#ui_print "-  Starting patching fstabes"
 	for fstabes in $( find $path_to/etc/*fstab* ) ; do
 		if ( grep "/userdata" $fstabes ) && ( grep "/metadata" $fstabes ) ; then 
@@ -670,11 +678,13 @@ RUN_DFE(){
             grep "wrappedkey" $fstabes && sed -i 's|,wrappedkey||g' $fstabes #&& size_c=true && ui_print "-  Remove weappedkey"
 			if [[ $( stat -c%s $fstabes ) -ge 30 ]] && $size_c ; then 
 				ui_print "-  $(basename $fstabes): Has been succesfully patched"
+				fstab_here=true
 				if [ $( basename $fstabes) == "fstab.sm8250" ] ; then 
                     sm8250=true
                 fi
             elif [[ $( stat -c%s $fstabes ) -ge 30 ]] && ! $size_c ; then 
             	ui_print "-  $( basename $fstabes ): Doesn't need patching"
+            	fstab_here=true
             	if [ $( basename $fstabes) == "fstab.sm8250" ] ; then 
                     sm8250=true
                 fi
@@ -684,6 +694,7 @@ RUN_DFE(){
 			fi
 		fi
 	done
+	$fstab_here || RUN_ABORT "29" "Something wrong: error 29"
 	}
 RUN_CHECK_RW(){
 	for mnt in /system_root/system /vendor/etc ; do 
@@ -774,9 +785,16 @@ RUN_FINAL(){
 		ui_print  "------******!!!!!!!!!!!!!!!!!!!!******-------"
 		ui_print  "------      Installing complited      -------"
 		ui_print  "------******!!!!!!!!!!!!!!!!!!!!******-------"
-	cp /tmp/recovery.log $home/
-	cp /tmp/dmesg.log $home/
-	cp /tmp/logcat.log $home/
+	cp /tmp/*.log $home/
+	cp /tmp/*.txt $home/
+	[[ -f $home/arguments.txt ]] || cp $zipfolder/arguments.txt $home/
+	f=""
+	for log in $( find $home/ -name "*.txt" ) $( find $home/ -name "*.log" ) ; do 
+		f="$f $log"
+	done
+	[[ -d $zipfolder/MFPLOGS ]] || rm -rf $zipfolder/MFPLOGS
+	mkdir $zipfolder/MFPLOGS
+	tar -cvpf  $zipfolder/MFPLOGS/logs.tar $f
 	$delhome && rm -rf $home
 
 	if ( mountpoint -q /data ) ; then
@@ -1097,7 +1115,7 @@ if ( [[ $permm == 41 ]] && ! $flashrom ) || ( $flashrw && ! $flashrom ) ; then
 			fi ; fi ; fi
 [[ -f /vendor/etc/fstab.sm8250 ]] && sm8250=true || sm8250=false
 
-$flashdfe && RUN_DFE "/vendor"
+$flashdfe && RUN_DFE 
 if $sm8250 || $hide_no_encrypted ; then RUN_INIT_PATCH ; fi
 RUN_POST_PATCH
 $flashADDzip && RUN_FLASH_ZIPS
