@@ -16,6 +16,9 @@ REMOVE MFPAPP FOLDER  "no"
 WIPE DATA             "no"
 
 HIDE NOT ENCRYPTED    "no"
+POST VBMETA PATCH     "no"
+POST VENDORBOOT PATCH "no"
+POST BOOT PATCH       "no"
 
 
 ##################################################################################################

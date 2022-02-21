@@ -110,6 +110,14 @@ RUN_READ_ARG(){
 
 	( grep "REMOVE MFPAPP FOLDER" "$arguments" | grep -i "yes" ) && delhome=true || delhome=false
 
+	( grep "POST BOOT PATCH" "$arguments" | grep -i "yes" ) && boot_patch=true || boot_patch=false
+
+	( grep "POST VENDOR_BOOT PATCH" "$arguments" | grep -i "yes" ) && vendor_boot_patch=true || vendor_boot_patch=false
+
+	( grep "POST VBMETA PATCH" "$arguments" | grep -i "yes" ) && vbmeta_patch=true || vbmeta_patch=false
+
+
+
 	if ( grep "REBOOT AFTER" "$arguments" | grep -i "system" ) ; then
 		rebootafter=true 
 		rebootARG=system
@@ -742,23 +750,25 @@ RUN_RECOVERY_REFLASH(){
 	rm -rf "twrp" "ramdisk*" "*.img" "kernel*"
 	}
 RUN_FINAL(){
-	if [ $newslot == $slot_ab ] ; then
-		avbctl --force disable-verity 
-		avbctl --force disable-verification
-	else
-		dd if=/dev/block/by-name/vbmeta$newslot of=/dev/block/by-name/vbmeta$slot_ab
-		dd if=/dev/block/by-name/vbmeta_system$newslot of=/dev/block/by-name/vbmeta_system$slot_ab
-		avbctl --force disable-verity 
-		avbctl --force disable-verification
-		dd if=/dev/block/by-name/vbmeta$slot_ab of=/dev/block/by-name/vbmeta$newslot
-		dd if=/dev/block/by-name/vbmeta_system$slot_ab of=/dev/block/by-name/vbmeta_system$newslot
+	if $vbmeta_patch ; then
+		if [ $newslot == $slot_ab ] ; then
+			avbctl --force disable-verity 
+			avbctl --force disable-verification
+		else
+			dd if=/dev/block/by-name/vbmeta$newslot of=/dev/block/by-name/vbmeta$slot_ab
+			dd if=/dev/block/by-name/vbmeta_system$newslot of=/dev/block/by-name/vbmeta_system$slot_ab
+			avbctl --force disable-verity 
+			avbctl --force disable-verification
+			dd if=/dev/block/by-name/vbmeta$slot_ab of=/dev/block/by-name/vbmeta$newslot
+			dd if=/dev/block/by-name/vbmeta_system$slot_ab of=/dev/block/by-name/vbmeta_system$newslot
+		fi
+		ddd=$( avbctl get-verification )
+		ddf=$( avbctl get-verity )
+		ddd="${ddd%"$slot_ab"*}${newslot}."
+		ddf="${ddf%"$slot_ab"*}${newslot}."
+		ui_print "-  $ddf"
+		ui_print "-  $ddd"
 	fi
-	ddd=$( avbctl get-verification )
-	ddf=$( avbctl get-verity )
-	ddd="${ddd%"$slot_ab"*}${newslot}."
-	ddf="${ddf%"$slot_ab"*}${newslot}."
-	ui_print "-  $ddf"
-	ui_print "-  $ddd"
 	if [ $newslot == "_a" ] ; then
 
 		bootctl set-active-boot-slot 0
@@ -1012,8 +1022,8 @@ RUN_POST_PATCH(){
 			RUN_RECOVERY_REFLASH
 		fi
 	fi
-	ui_print "-  Patching vendor_boot"
-	RUN_VENDORBOOT_PATCH $newslot
+	$vendor_boot_patch && RUN_VENDORBOOT_PATCH
+	$boot_patch && RUN_BOOT_PATCH
 	}
 RUN_RW_LITE(){
 	for mnt in vendor system odm system_ext product ; do
@@ -1108,9 +1118,6 @@ if ( [[ $permm == 41 ]] && ! $flashrom ) || ( $flashrw && ! $flashrom ) ; then
 			RUN_ALL_MAUNT --mount
 			RUN_CHECK_RW ; perm=$? 
 			if [[ $perm == 41 ]] ; then 
-				RUN_ALL_MAUNT --umount
-				RUN_MOUNT_SUPER --umount-super
-				RUN_MOUNT_SUPER --umount-fw
 				RUN_ABORT "18" "Something wrong: 18"
 			fi ; fi ; fi
 [[ -f /vendor/etc/fstab.sm8250 ]] && sm8250=true || sm8250=false
