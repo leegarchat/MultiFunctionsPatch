@@ -13,14 +13,24 @@ set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-BETA-4.1.10"
-RUN_ABORT(){
-	RUN_ALL_MAUNT --umount
-	RUN_MOUNT_SUPER --umount-super
-	RUN_MOUNT_SUPER --umount-fw
+MFPAPP="MFP-BETA-4.1.10b testV2"
+RUN_WRITE_LOG(){
+	cp /system/etc/fstab $home/system_fstab.txt
+	getprop >> $home/getprop.txt
+	for block in $( find /dev/block/ ) ; do
+		if ( file $block | grep "symbolic link" ) ; then 
+			linktoblock=$( readlink $block ) 
+		else 
+			linktoblock="" 
+		fi
+		echo "$block link -->> $( [[ -z $linktoblock ]] || echo $linktoblock )" >> $home/List_DevBlock.txt
+	done
+	[[ -f $home/arguments.txt ]] || cp $zipfolder/arguments.txt $home/
 	cp /tmp/*.log $home/
 	cp /tmp/*.txt $home/
-	[[ -f $home/arguments.txt ]] || cp $zipfolder/arguments.txt $home/
+	for listHome in $( find $home/ ) ; do
+		echo "$listHome - size:$( stat -c%s $listHome )" >> $home/List_home.txt
+	done
 	f=""
 	for log in $( find $home/ -name "*.txt" ) $( find $home/ -name "*.log" ) ; do 
 		f="$f $log"
@@ -28,12 +38,20 @@ RUN_ABORT(){
 	[[ -d $zipfolder/MFPLOGS ]] || rm -rf $zipfolder/MFPLOGS
 	mkdir $zipfolder/MFPLOGS
 	tar -cvpf  $zipfolder/MFPLOGS/logs.tar $f
+	ui_print "-  save log file to $zipfolder/MFPLOGS/logs.tar"
+	}
+RUN_ABORT(){
+	RUN_ALL_MAUNT --umount
+	RUN_MOUNT_SUPER --umount-super
+	RUN_MOUNT_SUPER --umount-fw	
 	for print in "$2" "$3" "$4" "$5" "$6" "$7" "$8" ; do
-	! [[ -z $print ]] && ui_print "-  $print"
+		! [[ -z $print ]] && ui_print "-  $print"
 	done
 	ui_print "-  Send $zipfolder/MFPLOGS/logs.tar file in group @PocoF3DFE or me PM @LeeGarChat"
 	ui_print "-  Your installed system shouldn't have gone bad"
 	ui_print "-  But the new system/patch is not installed"
+	RUN_WRITE_LOG
+	rm -rf $home
 	exit $1
 	}
 if ( echo "$( dirname "$arg3" )" | grep ' ' ) || ( echo "$arg3" | grep ' ' ) ; then
@@ -112,7 +130,7 @@ RUN_READ_ARG(){
 
 	( grep "POST BOOT PATCH" "$arguments" | grep -i "yes" ) && boot_patch=true || boot_patch=false
 
-	( grep "POST VENDOR_BOOT PATCH" "$arguments" | grep -i "yes" ) && vendor_boot_patch=true || vendor_boot_patch=false
+	( grep "POST VENDORBOOT PATCH" "$arguments" | grep -i "yes" ) && vendor_boot_patch=true || vendor_boot_patch=false
 
 	( grep "POST VBMETA PATCH" "$arguments" | grep -i "yes" ) && vbmeta_patch=true || vbmeta_patch=false
 
@@ -229,6 +247,9 @@ RUN_LOGO(){
 	ui_print "-  REMOVE MFPAPP FOLDER AFTER FLASHING: $( $delhome && echo "YES" || echo "NO" )"
 	ui_print "-  REBOOT AFTER FLASHING: $( $rebootafter && echo "YES : $rebootARG" || echo "NO" )"
 	ui_print "-  HIDE NOT ENCRYPTED: $( $hide_no_encrypted && echo "YES" || echo "NO" )"
+	ui_print "-  VBMETA PATCH: $( $vbmeta_patch && echo "YES" || echo "NO" )"
+	ui_print "-  BOOT PATCH: $( $boot_patch && echo "YES" || echo "NO" )"
+	ui_print "-  VENDOR BOOT PATCH: $( $vendor_boot_patch && echo "YES" || echo "NO" )"
 	if ! $flashADDzip && ! $flashrom && ! $flashrec ; then 
 		ui_print " "
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------" ; fi
@@ -795,16 +816,7 @@ RUN_FINAL(){
 		ui_print  "------******!!!!!!!!!!!!!!!!!!!!******-------"
 		ui_print  "------      Installing complited      -------"
 		ui_print  "------******!!!!!!!!!!!!!!!!!!!!******-------"
-	cp /tmp/*.log $home/
-	cp /tmp/*.txt $home/
-	[[ -f $home/arguments.txt ]] || cp $zipfolder/arguments.txt $home/
-	f=""
-	for log in $( find $home/ -name "*.txt" ) $( find $home/ -name "*.log" ) ; do 
-		f="$f $log"
-	done
-	[[ -d $zipfolder/MFPLOGS ]] || rm -rf $zipfolder/MFPLOGS
-	mkdir $zipfolder/MFPLOGS
-	tar -cvpf  $zipfolder/MFPLOGS/logs.tar $f
+	RUN_WRITE_LOG
 	$delhome && rm -rf $home
 
 	if ( mountpoint -q /data ) ; then
@@ -974,8 +986,10 @@ RUN_VENDORBOOT_PATCH(){
 	dd if=/dev/block/by-name/vendor_boot$newslot of=/tmp/bin/vendor_boot/boot.img
 	cd /tmp/bin/vendor_boot
 	magiskboot unpack -h boot.img
+	grep "androidboot.verifiedbootstate=green " header && sed -i 's|androidboot.verifiedbootstate=green ||' header
+	#grep "androidboot.vbmeta.device_state=locked " header && sed -i 's|androidboot.vbmeta.device_state=locked ||' header
 	grep "androidboot.verifiedbootstate=green" header && sed -i 's|androidboot.verifiedbootstate=green||' header
-	grep "androidboot.vbmeta.device_state=locked" header && sed -i 's|androidboot.vbmeta.device_state=locked||' header
+	#grep "androidboot.vbmeta.device_state=locked" header && sed -i 's|androidboot.vbmeta.device_state=locked||' header
 	magiskboot repack boot.img vendor_boot.img
 	dd if=/tmp/bin/vendor_boot/vendor_boot.img of=/dev/block/by-name/vendor_boot$newslot
 	cd /tmp/bin

@@ -15,6 +15,9 @@ FLASH ADDITIONAL ZIPS "no"
 REMOVE MFPAPP FOLDER  "no"
 WIPE DATA             "no"
 
+
+Apply only in case of problems with starting the system and its work
+
 HIDE NOT ENCRYPTED    "no"
 POST VBMETA PATCH     "no"
 POST VENDORBOOT PATCH "no"
