@@ -25,6 +25,8 @@ RUN_WRITE_LOG(){
 				linktoblock="" 
 			fi
 			echo "$block $( [[ -z $linktoblock ]] || echo "link -->> $linktoblock" )" >> $home/List_DevBlock.txt
+		else
+			continue
 		fi
 	done
 	[[ -f $home/arguments.txt ]] || cp $zipfolder/arguments.txt $home/
@@ -33,6 +35,8 @@ RUN_WRITE_LOG(){
 	for listHome in $( find $home/ ) ; do
 		if [[ -f $listHome ]] ; then
 			echo "$listHome - size:$( stat -c%s $listHome )" >> $home/List_home.txt
+		else
+			continue
 		fi
 	done
 	f=""
@@ -141,52 +145,51 @@ RUN_READ_ARG(){
 	( grep "DISABLE VERITY" "$arguments" | grep -i "yes" ) && DM_VERY=true || DM_VERY=false
 
 
+
 	if ( grep "FLASH CUSTOM IMG" "$arguments" | grep -i "yes" ) ; then
-		for part in $( grep -i "Path custom imgs" "$arguments" ) ; do
-			Cimg=${part%flash to*} ; Cimg=${Cimg#*\"} ; Cimg=${Cimg%\"*}
-			toPart=${part#*flash to} ; toPart=${toPart#*\"} ; toPart=${toPart%\"*}
-			if ( echo $Cimg | grep ".img" ) ; then
-				if [[ -z $Cimg ]] || [[ -z $toPart ]] ; then
-					if ( echo $Cimg | echo "/" ) ; then
-						if [[ -f $Cimg ]] \
-							&& ( ( [[ -f /dev/block/by-name/${toPart}_a ]] || [[ -f /dev/block/by-name/${toPart}_b ]] ) \
-							|| ( [[ -f /dev/block/mapper/${toPart}_a ]] || [[ -f /dev/block/mapper/${toPart}_b ]] ) ) ; then
-							pathCimg="$Cimg"
+		nlines=$(grep -n "Path custom imgs" "$arguments" | awk '{print int($1)}')
+		flash_custom_img=false
+		for line in $nlines ; do
+			r=$(head -n$line "$arguments" | tail -n1)
+			if ( echo ${r%Path custom imgs*} | grep "#" ) ; then 
+				continue
+			else
+				imgC="${r#*\"}" ; imgC="${imgC%%\"*}"
+				imgP="${r%\"*}" ; imgP="${imgP##*\"}"
+				if [[ -z $imgC ]] || [[ -z $imgP ]] ; then
+					continue
+				else
+					if ( echo $imgC | grep "/" ) ; then 
+						if [[ -f $imgC ]] ; then
+							FimgC=$imgC
 							flash_custom_img=true
-						else 
-							RUN_ABORT "31" "NOT FIND $Cimg"
+						else
+							RUN_ABORT "31" "NOT FIND $imgC"
 						fi
 					else
-						if [[ -f $zipfolder/$Cimg ]] \
-							&& ( ( [[ -f /dev/block/by-name/${toPart}_a ]] || [[ -f /dev/block/by-name/${toPart}_b ]] ) \
-							|| ( [[ -f /dev/block/mapper/${toPart}_a ]] || [[ -f /dev/block/mapper/${toPart}_b ]] ) ) ; then
-							pathCimg="$zipfolder/$Cimg"
+						if [[ -f $zipfolder/$imgC ]] ; then
+							FimgC=$zipfolder/$imgC
 							flash_custom_img=true
-						else 
-							RUN_ABORT "32" "NOT FIND $zipfolder/$Cimg"
+						else
+							RUN_ABORT "32" "NOT FIND $imgC"
 						fi
-					fi 
-					case $toPart in
+					fi
+					case $imgP in
 						system|vendor|odm|product|system_ext)
 							mkdir $home/Csuperimg
-							cp "$pathCimg" $home/Csuperimg/$toPart$newslot.img
+							cp "$FimgC" $home/Csuperimg/$imgP$newslot.img
 							;;
 						*)	
 							mkdir $home/Cimg
-							cp "$pathCimg" $home/Cimg/$toPart.img
+							cp "$FimgC" $home/Cimg/$imgP.img
 							;;
 					esac
-				else
-					continue
 				fi
-			else 
-				continue
 			fi
 		done
 	else
 		flash_custom_img=false
 	fi
-
 
 
 
@@ -216,10 +219,12 @@ RUN_READ_ARG(){
 	else flashrom=false ; fi
 
 	if ( grep "FLASH ADDITIONAL ZIPS" "$arguments" | grep -i "yes" ) ; then
-		for list in $( grep -i "Path additional zips" "$arguments" ) ; do 
+		nlines=$(grep -n "Path additional zips" "$arguments" | awk '{print int($1)}')
+		for line in $nlines ; do
+			list=$(head -n$line "$arguments" | tail -n1)
 			list=$( echo "$list" | grep -q "\.zip" && echo $list ; echo "$list" | grep -q "\.apk" && echo $list ) 
-			name_ADDzip=${list#*\"} ; name_ADDzip=${name_ADDzip%%\"*}
-			if ( echo ${name_ADDzip%Path additional zips*} | grep '#' ) ; then 
+			name_ADDzip=${list#*\"} ; name_ADDzip=${name_ADDzip%\"*}
+			if ( echo ${list%Path additional zips*} | grep '#' ) ; then 
 				continue
 			else
 				if [[ -z $name_ADDzip ]] ; then 
@@ -334,7 +339,9 @@ RUN_LOGO(){
 	if $flash_custom_img ; then 
 		ui_print "------*******!!!CUSTOM IMGS!!!********-------"
 		for name in $( find $home/Cimg/ $home/Csuperimg/ ) ; do
-			ui_print "-  $( basename $name )"
+			if [[ -f $name ]] ; then
+				ui_print "-  $( basename $name )"
+			fi
 		done
 		ui_print " "
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
@@ -1135,9 +1142,22 @@ RUN_FLASH_ZIPS(){
 	}
 RUN_MV_CIMG(){
 	if $flash_custom_img ; then
-		cp $home/Cimg/* $home/fw/
-		cp $home/Csuperimg/* $home/super
-		CimgFT=true
+		for f in $( find $home/Cimg/ ) ; do 
+			if [[ -f $f ]] ; then
+				rm -f $home/fw/$( basename $f ).img
+				cp $f $home/fw/
+			else 
+				continue
+			fi
+		done
+		for f in $( find $home/Csuperimg/ ) ; do
+			if [[ -f $f ]] ; then
+				rm -f $home/imgs/$( basename $f )$newslot.img
+				cp $f $home/imgs/
+			else
+				continue
+			fi
+		done
 	fi
 	}
 
