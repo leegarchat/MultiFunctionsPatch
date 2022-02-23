@@ -86,6 +86,11 @@ Path additional zips       ""
 
 ###################################################################################################
 
+You need to specify which custom img to flash, and where. no slot specified
+Example "custom.img" flash to -> "dtbo"
+Example "/patch/folder/custom.img -> "dtbo"
+Example "custom.img" flash to -> "vendor"
+Example "/patch/folder/custom.img -> "vendor"
 
 Path custom imgs           "" flash to -> ""
 Path custom imgs           "" flash to -> ""
