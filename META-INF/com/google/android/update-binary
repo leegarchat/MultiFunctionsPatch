@@ -13,7 +13,7 @@ set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-BETA-4.1.11-testV1"
+MFPAPP="MFP-BETA-4.1.11-testV2"
 RUN_WRITE_LOG(){
 	cp /system/etc/fstab $home/system_fstab.txt
 	getprop >> $home/getprop.txt
@@ -148,14 +148,20 @@ RUN_READ_ARG(){
 			if ( echo $Cimg | grep ".img" ) ; then
 				if [[ -z $Cimg ]] || [[ -z $toPart ]] ; then
 					if ( echo $Cimg | echo "/" ) ; then
-						if [[ -f $Cimg ]] ; then
+						if [[ -f $Cimg ]] \
+							&& ( ( [[ -f /dev/block/by-name/${toPart}_a ]] || [[ -f /dev/block/by-name/${toPart}_b ]] ) \
+							|| ( [[ -f /dev/block/mapper/${toPart}_a ]] || [[ -f /dev/block/mapper/${toPart}_b ]] ) ) ; then
 							pathCimg="$Cimg"
+							flash_custom_img=true
 						else 
 							RUN_ABORT "31" "NOT FIND $Cimg"
 						fi
 					else
-						if [[ -f $zipfolder/$Cimg ]] ; then
+						if [[ -f $zipfolder/$Cimg ]] \
+							&& ( ( [[ -f /dev/block/by-name/${toPart}_a ]] || [[ -f /dev/block/by-name/${toPart}_b ]] ) \
+							|| ( [[ -f /dev/block/mapper/${toPart}_a ]] || [[ -f /dev/block/mapper/${toPart}_b ]] ) ) ; then
 							pathCimg="$zipfolder/$Cimg"
+							flash_custom_img=true
 						else 
 							RUN_ABORT "32" "NOT FIND $zipfolder/$Cimg"
 						fi
@@ -177,6 +183,8 @@ RUN_READ_ARG(){
 				continue
 			fi
 		done
+	else
+		flash_custom_img=false
 	fi
 
 
@@ -1126,9 +1134,11 @@ RUN_FLASH_ZIPS(){
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	}
 RUN_MV_CIMG(){
-	cp $home/Cimg/* $home/fw/
-	cp $home/Csuperimg/* $home/super
-	CimgFT=true
+	if $flash_custom_img ; then
+		cp $home/Cimg/* $home/fw/
+		cp $home/Csuperimg/* $home/super
+		CimgFT=true
+	fi
 	}
 
 
@@ -1162,12 +1172,12 @@ else
 		RUN_ABORT "17"
 	fi
 fi 
-if $flashrom || $flashADDzip ; then
+if $flashrom || $flashADDzip || $flash_custom_img ; then
     if $flashrom ; then
 	    RUN_CHECK_ROM
 	    RUN_SINGL_STRUCTURES $?
 	    RUN_MV_CIMG
-	elif ! $flashrom && $flashADDzip ; then
+	elif ! $flashrom && ( $flashADDzip || $flash_custom_img ) ; then
         RUN_DUMP_PART
         RUN_MV_CIMG
 	fi
