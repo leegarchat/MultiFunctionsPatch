@@ -1144,7 +1144,7 @@ RUN_MV_CIMG(){
 	if $flash_custom_img ; then
 		for f in $( find $home/Cimg/ ) ; do 
 			if [[ -f $f ]] ; then
-				rm -f $home/fw/$( basename $f ).img
+				rm -f $home/fw/$( basename $f )
 				cp $f $home/fw/
 			else 
 				continue
@@ -1152,7 +1152,7 @@ RUN_MV_CIMG(){
 		done
 		for f in $( find $home/Csuperimg/ ) ; do
 			if [[ -f $f ]] ; then
-				rm -f $home/imgs/$( basename $f )$newslot.img
+				rm -f $home/imgs/$( basename ${f%.img*} )$newslot.img
 				cp $f $home/imgs/
 			else
 				continue
