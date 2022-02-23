@@ -4,24 +4,38 @@
 Basic Patch Arguments
 Arguments             PARAMETRS ( example "yes" or "no" )
 
-MAKERW                "no"
-DFE                   "no"
+MAKERW_____________________"no"
+DFE________________________"no"
 
-RECOVERY REFLASH      "no"
-FLASH RECOVERY        "no"
-FLASH ROM             "no"
-FLASH ADDITIONAL ZIPS "no"
+FIX PROXIMETER_____________"no" <--Not working, in progress
 
-REMOVE MFPAPP FOLDER  "no"
-WIPE DATA             "no"
+RECOVERY REFLASH___________"no"
+FLASH RECOVERY_____________"no"
+FLASH ROM__________________"no"
+FLASH ADDITIONAL ZIPS______"no"
+FLASH CUSTOM IMG___________"no" 
 
+REMOVE MFPAPP FOLDER_______"no"
+WIPE DATA__________________"no"
+
+#################################################################################################
 
 Apply only in case of problems with starting the system and its work
 
-HIDE NOT ENCRYPTED    "no"
-POST VBMETA PATCH     "no"
-POST VENDORBOOT PATCH "no"
-POST BOOT PATCH       "no"
+HIDE NOT ENCRYPTED_________"no"
+DISABLE VERITY_____________"no"
+DISABLE VERIFICATION_______"no"
+POST VENDORBOOT PATCH______"no"
+POST BOOT PATCH____________"no"
+
+
+##################################################################################################
+
+Miui only fix ( not working , in progress )
+
+FIX 120HZ & BRIGHTNESS_____"no" <--Not working, in progress
+FORCE 120HZ FOR ALL APPS___"no" <--Not working, in progress
+
 
 
 ##################################################################################################
@@ -29,7 +43,7 @@ POST BOOT PATCH       "no"
 Basic Arguments for slot
 Arguments              PARAMETRS ( example "system" or "recovery" or "bootloader" or "nothing" )
 
-REBOOT AFTER          "nope"
+REBOOT AFTER_______________"Placeholder"
 
 
 ##################################################################################################
@@ -37,7 +51,7 @@ REBOOT AFTER          "nope"
 Basic Arguments for slot
 Arguments              PARAMETRS ( example "_a" or "_b" )
 
-INSTALL SLOT           "default"
+INSTALL SLOT_______________"default"
 
 ##################################################################################################
 
@@ -47,8 +61,8 @@ the files in the same folder with the MFP
 Arguments             PARAMETRS ( example "rom.zip/rar/7z" or "recovery.img" or "rom-fastboot.zip/rar/7z") 
 Arguments             PARAMETRS ( example "/sdcard/folder/folder/filename.img/rar/zip/7z" )
 
-Path ROM              ""
-Path Recovery         ""
+Path ROM___________________"Placeholder"
+Path Recovery______________"Placeholder"
 
 ##################################################################################################
 
@@ -57,31 +71,29 @@ Path Recovery         ""
 Arguments             PARAMETRS ( example "Gapps.zip" or "magisk.zip" or "kernel.zip" ) 
 Arguments             PARAMETRS ( example "/sdcard/folder/folder/filename.zip" )
 
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
-Path additional zips  ""
+Path additional zips       ""
+Path additional zips       ""
+Path additional zips       ""
+Path additional zips       ""
+Path additional zips       ""
+Path additional zips       ""
+Path additional zips       ""
+Path additional zips       ""
+Path additional zips       ""
+Path additional zips       ""
+Path additional zips       ""
+Path additional zips       ""
 
+###################################################################################################
+
+
+Path custom imgs           "" flash to -> ""
+Path custom imgs           "" flash to -> ""
+Path custom imgs           "" flash to -> ""
+Path custom imgs           "" flash to -> ""
+Path custom imgs           "" flash to -> ""
+Path custom imgs           "" flash to -> ""
+Path custom imgs           "" flash to -> ""
+Path custom imgs           "" flash to -> ""
+Path custom imgs           "" flash to -> ""
+Path custom imgs           "" flash to -> ""

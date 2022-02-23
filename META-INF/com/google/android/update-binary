@@ -18,18 +18,22 @@ RUN_WRITE_LOG(){
 	cp /system/etc/fstab $home/system_fstab.txt
 	getprop >> $home/getprop.txt
 	for block in $( find /dev/block/ ) ; do
-		if ( file $block | grep "symbolic link" ) ; then 
-			linktoblock=$( readlink $block ) 
-		else 
-			linktoblock="" 
+		if [[ -f $block ]] ; then 
+			if ( file $block | grep "symbolic link" ) ; then 
+				linktoblock=$( readlink $block ) 
+			else 
+				linktoblock="" 
+			fi
+			echo "$block $( [[ -z $linktoblock ]] || echo "link -->> $linktoblock" )" >> $home/List_DevBlock.txt
 		fi
-		echo "$block link -->> $( [[ -z $linktoblock ]] || echo $linktoblock )" >> $home/List_DevBlock.txt
 	done
 	[[ -f $home/arguments.txt ]] || cp $zipfolder/arguments.txt $home/
 	cp /tmp/*.log $home/
 	cp /tmp/*.txt $home/
 	for listHome in $( find $home/ ) ; do
-		echo "$listHome - size:$( stat -c%s $listHome )" >> $home/List_home.txt
+		if [[ -f $listHome ]] ; then
+			echo "$listHome - size:$( stat -c%s $listHome )" >> $home/List_home.txt
+		fi
 	done
 	f=""
 	for log in $( find $home/ -name "*.txt" ) $( find $home/ -name "*.log" ) ; do 
@@ -132,7 +136,49 @@ RUN_READ_ARG(){
 
 	( grep "POST VENDORBOOT PATCH" "$arguments" | grep -i "yes" ) && vendor_boot_patch=true || vendor_boot_patch=false
 
-	( grep "POST VBMETA PATCH" "$arguments" | grep -i "yes" ) && vbmeta_patch=true || vbmeta_patch=false
+	( grep "DISABLE VERIFICATION" "$arguments" | grep -i "yes" ) && DM_VERI=true || DM_VERI=false
+
+	( grep "DISABLE VERITY" "$arguments" | grep -i "yes" ) && DM_VERY=true || DM_VERY=false
+
+
+	if ( grep "FLASH CUSTOM IMG" "$arguments" | grep -i "yes" ) ; then
+		for part in $( grep -i "Path custom imgs" "$arguments" ) ; do
+			Cimg=${part%flash to*} ; Cimg=${Cimg#*\"} ; Cimg=${Cimg%\"*}
+			toPart=${part#*flash to} ; toPart=${toPart#*\"} ; toPart=${toPart%\"*}
+			if ( echo $Cimg | grep ".img" ) ; then
+				if [[ -z $Cimg ]] || [[ -z $toPart ]] ; then
+					if ( echo $Cimg | echo "/" ) ; then
+						if [[ -f $Cimg ]] ; then
+							pathCimg="$Cimg"
+						else 
+							RUN_ABORT "31" "NOT FIND $Cimg"
+						fi
+					else
+						if [[ -f $zipfolder/$Cimg ]] ; then
+							pathCimg="$zipfolder/$Cimg"
+						else 
+							RUN_ABORT "32" "NOT FIND $zipfolder/$Cimg"
+						fi
+					fi 
+					case $toPart in
+						system|vendor|odm|product|system_ext)
+							mkdir $home/Csuperimg
+							cp "$pathCimg" $home/Csuperimg/$toPart$newslot.img
+							;;
+						*)	
+							mkdir $home/Cimg
+							cp "$pathCimg" $home/Cimg/$toPart.img
+							;;
+					esac
+				else
+					continue
+				fi
+			else 
+				continue
+			fi
+		done
+	fi
+
 
 
 
@@ -247,9 +293,11 @@ RUN_LOGO(){
 	ui_print "-  REMOVE MFPAPP FOLDER AFTER FLASHING: $( $delhome && echo "YES" || echo "NO" )"
 	ui_print "-  REBOOT AFTER FLASHING: $( $rebootafter && echo "YES : $rebootARG" || echo "NO" )"
 	ui_print "-  HIDE NOT ENCRYPTED: $( $hide_no_encrypted && echo "YES" || echo "NO" )"
-	ui_print "-  VBMETA PATCH: $( $vbmeta_patch && echo "YES" || echo "NO" )"
+	ui_print "-  DISABLE VERIFICATION: $( $DM_VERI && echo "YES" || echo "NO" )"
+	ui_print "-  DISABLE VERITY: $( $DM_VERY && echo "YES" || echo "NO" )"
 	ui_print "-  BOOT PATCH: $( $boot_patch && echo "YES" || echo "NO" )"
 	ui_print "-  VENDOR BOOT PATCH: $( $vendor_boot_patch && echo "YES" || echo "NO" )"
+	ui_print "-  FLASH CUSTOM IMG: $( $flash_custom_img && echo "YES" || echo "NO" )"
 	if ! $flashADDzip && ! $flashrom && ! $flashrec ; then 
 		ui_print " "
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------" ; fi
@@ -270,6 +318,14 @@ RUN_LOGO(){
 	if $flashADDzip ; then 
 		ui_print "------******!!ADDITIONAL ZIPS!!!******-------"
 		for name in $( echo -e "$listADDzip" ) ; do
+			ui_print "-  $( basename $name )"
+		done
+		ui_print " "
+		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
+	fi
+	if $flash_custom_img ; then 
+		ui_print "------*******!!!CUSTOM IMGS!!!********-------"
+		for name in $( find $home/Cimg/ $home/Csuperimg/ ) ; do
 			ui_print "-  $( basename $name )"
 		done
 		ui_print " "
@@ -771,24 +827,24 @@ RUN_RECOVERY_REFLASH(){
 	rm -rf "twrp" "ramdisk*" "*.img" "kernel*"
 	}
 RUN_FINAL(){
-	if $vbmeta_patch ; then
+	if $DM_VERY || $DM_VERI ; then
 		if [ $newslot == $slot_ab ] ; then
-			avbctl --force disable-verity 
-			avbctl --force disable-verification
+			$DM_VERY && avbctl --force disable-verity 
+			$DM_VERI && avbctl --force disable-verification
 		else
 			dd if=/dev/block/by-name/vbmeta$newslot of=/dev/block/by-name/vbmeta$slot_ab
 			dd if=/dev/block/by-name/vbmeta_system$newslot of=/dev/block/by-name/vbmeta_system$slot_ab
-			avbctl --force disable-verity 
-			avbctl --force disable-verification
+			$DM_VERY && avbctl --force disable-verity 
+			$DM_VERI && avbctl --force disable-verification
 			dd if=/dev/block/by-name/vbmeta$slot_ab of=/dev/block/by-name/vbmeta$newslot
 			dd if=/dev/block/by-name/vbmeta_system$slot_ab of=/dev/block/by-name/vbmeta_system$newslot
 		fi
-		ddd=$( avbctl get-verification )
-		ddf=$( avbctl get-verity )
-		ddd="${ddd%"$slot_ab"*}${newslot}."
-		ddf="${ddf%"$slot_ab"*}${newslot}."
-		ui_print "-  $ddf"
-		ui_print "-  $ddd"
+		$DM_VERI && ddd=$( avbctl get-verification )
+		$DM_VERY && ddf=$( avbctl get-verity )
+		$DM_VERI && ddd="${ddd%"$slot_ab"*}${newslot}."
+		$DM_VERY && ddf="${ddf%"$slot_ab"*}${newslot}."
+		$DM_VERY && ui_print "-  $ddf"
+		$DM_VERI && ui_print "-  $ddd"
 	fi
 	if [ $newslot == "_a" ] ; then
 
@@ -878,14 +934,14 @@ RUN_ALL_RW(){
 	fi
 
 	#ui_print "-  $Ss $vs $ss $ps $sss $odms"
-	ssfree=$( calc "$Ss-$vs-20971520-$odms-$sss-$ss-$ps" )
+	ssfree=$( calc "$Ss-$vs-8388608-$odms-$sss-$ss-$ps" )
 	tfs=$( expr $ssfree / 1024 )
 	echo "  -  $ssfree $tfs"
 	if [ $tfs -gt 1 ] ; then
 	    if $psf && $sssf ; then
 	    	#ui_print "-  Full complect"
 	        nss=$( calc "$ssfree/3" )
-	        nvs=$( calc "($ssfree-$nss)/3" )
+	        nvs=$( calc "($ssfree-$nss)/2" )
 	        nps=$( calc "($ssfree-$nss-$nvs)/2" )
 	        nsss=$( calc "$ssfree-$nss-$nvs-$nps" )
 	    fi
@@ -987,9 +1043,9 @@ RUN_VENDORBOOT_PATCH(){
 	cd /tmp/bin/vendor_boot
 	magiskboot unpack -h boot.img
 	grep "androidboot.verifiedbootstate=green " header && sed -i 's|androidboot.verifiedbootstate=green ||' header
-	#grep "androidboot.vbmeta.device_state=locked " header && sed -i 's|androidboot.vbmeta.device_state=locked ||' header
+	grep "androidboot.vbmeta.device_state=locked " header && sed -i 's|androidboot.vbmeta.device_state=locked ||' header
 	grep "androidboot.verifiedbootstate=green" header && sed -i 's|androidboot.verifiedbootstate=green||' header
-	#grep "androidboot.vbmeta.device_state=locked" header && sed -i 's|androidboot.vbmeta.device_state=locked||' header
+	grep "androidboot.vbmeta.device_state=locked" header && sed -i 's|androidboot.vbmeta.device_state=locked||' header
 	magiskboot repack boot.img vendor_boot.img
 	dd if=/tmp/bin/vendor_boot/vendor_boot.img of=/dev/block/by-name/vendor_boot$newslot
 	cd /tmp/bin
@@ -1069,9 +1125,14 @@ RUN_FLASH_ZIPS(){
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	}
+RUN_MV_CIMG(){
+	cp $home/Cimg/* $home/fw/
+	cp $home/Csuperimg/* $home/super
+	CimgFT=true
+	}
 
 
-
+CimgFT=false
 case $zipname in
 	*ARGOUT*)
 		arguments=$zipfolder/arguments.txt
@@ -1105,8 +1166,10 @@ if $flashrom || $flashADDzip ; then
     if $flashrom ; then
 	    RUN_CHECK_ROM
 	    RUN_SINGL_STRUCTURES $?
+	    RUN_MV_CIMG
 	elif ! $flashrom && $flashADDzip ; then
         RUN_DUMP_PART
+        RUN_MV_CIMG
 	fi
     
 	if $flashADDzip || $flashdfe || $flashrw ; then 
@@ -1125,6 +1188,7 @@ if [[ $perm == 41 ]] ; then
 if ( [[ $permm == 41 ]] && ! $flashrom ) || ( $flashrw && ! $flashrom ) ; then 
 	RUN_ALL_MAUNT --umount
 	RUN_DUMP_PART
+	RUN_MV_CIMG
 	RUN_ALL_RW
 		if $flashdfe || $flashADDzip ; then
 			RUN_MOUNT_SUPER --mount-super
