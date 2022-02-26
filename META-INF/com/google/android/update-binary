@@ -13,12 +13,12 @@ set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-BETA-4.1.11-testV2"
+MFPAPP="MFP-BETA-4.1.11-testV3"
 RUN_WRITE_LOG(){
 	cp /system/etc/fstab $home/system_fstab.txt
 	getprop >> $home/getprop.txt
 	for block in $( find /dev/block/ ) ; do
-		if [[ -f $block ]] ; then 
+		if ! [[ -d $block ]] ; then 
 			if ( file $block | grep "symbolic link" ) ; then 
 				linktoblock=$( readlink $block ) 
 			else 
@@ -33,7 +33,7 @@ RUN_WRITE_LOG(){
 	cp /tmp/*.log $home/
 	cp /tmp/*.txt $home/
 	for listHome in $( find $home/ ) ; do
-		if [[ -f $listHome ]] ; then
+		if ! [[ -d $listHome ]] ; then
 			echo "$listHome - size:$( stat -c%s $listHome )" >> $home/List_home.txt
 		else
 			continue
@@ -439,70 +439,70 @@ RUN_MOUNT_SUPER(){
     fi
 	;;
 	--mount-fw)
-				if ! $extfw ; then
-				for fwimg in $( find $home/fw/*.img ) ; do
-					[[ -d /dev/block/backup ]] || mkdir /dev/block/backup
-					bakblock="/dev/block/backup/"
-					naked_name=$( basename ${fwimg%.img*} )
-					for block in $( find /dev/block/by-name/${naked_name}$slot_ab ) ; do
-						if ( file $block | grep "symbolic link" ) ; then
-							linkblock=$( readlink $block )
-							dd if=$linkblock of=${bakblock}$( basename $linkblock )
-							dd if=$fwimg of=$linkblock
-							echo "${linkblock}LOLLOLLOLFACK$fwimg" >> $home/list_block.txt
-						fi
-					done
-				done
-				extfw=true
-			    fi
-			;;
-			--umount-super) 
-							if $extsuper ; then 
-								RUN_ALL_MAUNT --umount
-							if [[ -z $block_system ]] ; then 
-								RUN_ABORT "10" "Something wrong: error 10"
-							else
-								umount /system_root ; umount /vendor ; umount /product ; umount /system_ext ; umount /odm
-								
-								if $system_ext_back ; then
-									sed -i 's|'$new_line_block_system_ext'|'$line_block_system_ext'|' /etc/fstab 
-								fi
-								if $system_back ; then 
-									sed -i 's|'$new_line_block_system'|'$line_block_system'|' /etc/fstab 
-								fi
-								if $vendor_back ; then
-									sed -i 's|'$new_line_block_vendor'|'$line_block_vendor'|' /etc/fstab 
-								fi
-								if $product_back ; then
-									sed -i 's|'$new_line_block_product'|'$line_block_product'|' /etc/fstab 
-								fi
-								if $odm_back ; then 
-									sed -i 's|'$new_line_block_odm'|'$line_block_odm'|' /etc/fstab 
-								fi
+		if ! $extfw ; then
+		for fwimg in $( find $home/fw/*.img ) ; do
+			[[ -d /dev/block/backup ]] || mkdir /dev/block/backup
+			bakblock="/dev/block/backup/"
+			naked_name=$( basename ${fwimg%.img*} )
+			for block in $( find /dev/block/by-name/${naked_name}$slot_ab ) ; do
+				if ( file $block | grep "symbolic link" ) ; then
+					linkblock=$( readlink $block )
+					dd if=$linkblock of=${bakblock}$( basename $linkblock )
+					dd if=$fwimg of=$linkblock
+					echo "${linkblock}LOLLOLLOLFACK$fwimg" >> $home/list_block.txt
+				fi
+			done
+		done
+		extfw=true
+	    fi
+	;;
+	--umount-super) 
+	if $extsuper ; then 
+		RUN_ALL_MAUNT --umount
+	if [[ -z $block_system ]] ; then 
+		RUN_ABORT "10" "Something wrong: error 10"
+	else
+		umount /system_root ; umount /vendor ; umount /product ; umount /system_ext ; umount /odm
+		
+		if $system_ext_back ; then
+			sed -i 's|'$new_line_block_system_ext'|'$line_block_system_ext'|' /etc/fstab 
+		fi
+		if $system_back ; then 
+			sed -i 's|'$new_line_block_system'|'$line_block_system'|' /etc/fstab 
+		fi
+		if $vendor_back ; then
+			sed -i 's|'$new_line_block_vendor'|'$line_block_vendor'|' /etc/fstab 
+		fi
+		if $product_back ; then
+			sed -i 's|'$new_line_block_product'|'$line_block_product'|' /etc/fstab 
+		fi
+		if $odm_back ; then 
+			sed -i 's|'$new_line_block_odm'|'$line_block_odm'|' /etc/fstab 
+		fi
 
-								for img in $block_system $block_system_ext $block_vendor $block_product $block_odm ; do 
-									rm $img
-									mv ${img}.bak $img
-								done
-								# for img in $loop_system $loop_system_ext $loop_vendor $loop_product $loop_odm ; do 
-								# 	rm $img
-								# done 
-							fi
-							extsuper=false
-				            fi
-				            ;;
-				            --umount-fw)
-							if $extfw ; then 
-							for fwimg in $( cat $home/list_block.txt ) ; do
-								bakblock="/dev/block/backup/"
-								rm -f ${fwimg#*LOLLOLLOLFACK}
-								dd if="${fwimg%LOLLOLLOLFACK*}" of="${fwimg#*LOLLOLLOLFACK}"
-								dd if=$bakblock$( basename ${fwimg%LOLLOLLOLFACK*} ) of="${fwimg%LOLLOLLOLFACK*}"
-							
-							done
-							extfw=false
-							fi
-			;;	 
+		for img in $block_system $block_system_ext $block_vendor $block_product $block_odm ; do 
+			rm $img
+			mv ${img}.bak $img
+		done
+		# for img in $loop_system $loop_system_ext $loop_vendor $loop_product $loop_odm ; do 
+		# 	rm $img
+		# done 
+	fi
+	extsuper=false
+    fi
+    ;;
+    --umount-fw)
+	if $extfw ; then 
+	for fwimg in $( cat $home/list_block.txt ) ; do
+		bakblock="/dev/block/backup/"
+		rm -f ${fwimg#*LOLLOLLOLFACK}
+		dd if="${fwimg%LOLLOLLOLFACK*}" of="${fwimg#*LOLLOLLOLFACK}"
+		dd if=$bakblock$( basename ${fwimg%LOLLOLLOLFACK*} ) of="${fwimg%LOLLOLLOLFACK*}"
+	
+	done
+	extfw=false
+	fi
+	;;	 
 	esac
 	}
 RUN_MAKE_SUPER(){
@@ -923,7 +923,7 @@ RUN_ALL_RW(){
 		RUN_ABORT "24" "Something wrong: error 24"
 	fi
 	ui_print "-  Give RW for all partition"
-	for img_rw in vendor system_ext product system ; do
+	for img_rw in vendor system_ext product system odm ; do
 		[[ -f $home/imgs/$img_rw$newslot.img ]] && RUN_RW "$home/imgs/$img_rw$newslot.img"
 	done
 	Ss=$( grep -F -m 1 "Size:" $LPDUMP | awk '{print $2}' )
@@ -948,9 +948,10 @@ RUN_ALL_RW(){
 	else ui_print "-  NON odm" && odms=0
 	fi
 
-	#ui_print "-  $Ss $vs $ss $ps $sss $odms"
-	ssfree=$( calc "$Ss-$vs-8388608-$odms-$sss-$ss-$ps" )
-	tfs=$( expr $ssfree / 1024 )
+	echo "-  $Ss $vs $ss $ps $sss $odms"
+	ssfree=$( calc "$Ss-$vs-8388608-$ss" )
+	ssfree=$( calc "$ssfree-$odms-$sss-$ps" )
+	tfs=$( calc "$ssfree/1024" )
 	echo "  -  $ssfree $tfs"
 	if [ $tfs -gt 1 ] ; then
 	    if $psf && $sssf ; then
@@ -1145,7 +1146,7 @@ RUN_MV_CIMG(){
 		for f in $( find $home/Cimg/ ) ; do 
 			if [[ -f $f ]] ; then
 				rm -f $home/fw/$( basename $f )
-				cp $f $home/fw/
+				cp -f $f $home/fw/
 			else 
 				continue
 			fi
@@ -1153,7 +1154,7 @@ RUN_MV_CIMG(){
 		for f in $( find $home/Csuperimg/ ) ; do
 			if [[ -f $f ]] ; then
 				rm -f $home/imgs/$( basename ${f%.img*} )$newslot.img
-				cp $f $home/imgs/
+				cp -f $f $home/imgs/
 			else
 				continue
 			fi
@@ -1231,7 +1232,7 @@ if ( [[ $permm == 41 ]] && ! $flashrom ) || ( $flashrw && ! $flashrom ) ; then
 [[ -f /vendor/etc/fstab.sm8250 ]] && sm8250=true || sm8250=false
 
 $flashdfe && RUN_DFE 
-if $sm8250 || $hide_no_encrypted ; then RUN_INIT_PATCH ; fi
+$hide_no_encrypted && RUN_INIT_PATCH
 RUN_POST_PATCH
 $flashADDzip && RUN_FLASH_ZIPS
 RUN_ALL_MAUNT --umount
