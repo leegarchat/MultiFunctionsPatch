@@ -62,55 +62,10 @@ RUN_ABORT(){
 	rm -rf $home
 	exit $1
 	}
-if ( echo "$( dirname "$arg3" )" | grep ' ' ) || ( echo "$arg3" | grep ' ' ) ; then
-	RUN_ABORT "3" "Please remove spaces from the path name" \
-	"Bad path /sdcard/folder name/mfp.zip" \
-	"Good path /sdcard/foldername/folder-name/mfp.zip"
-fi
-zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
-
-( mountpoint -q /data ) || mount /data
-unzip -o "$arg3" "busybox" -d /tmp/bin/
-chmod 777 /tmp/bin/busybox
-mkdir -pv /tmp/bin
-mkdir -pv /tmp/lib
-mkdir -pv /tmp/twrp
-/tmp/bin/busybox unzip -o "$arg3" -d /tmp/
-chmod 777 /tmp/bin/*
-chmod 777 /tmp/lib/*
-find /tmp/bin/* -exec ln -s {} /system/bin \; 
-export PATH=/tmp/bin:$PATH 
-slot_num=$(bootctl get-current-slot) ; slot_ab=$(bootctl get-suffix $slot_num)
-if ( /tmp/bin/toybox mountpoint -q /sdcard/ ) ; then
-	home="/sdcard/MFPAPP"
-elif ( /tmp/bin/toybox mountpoint -q /data/ ) ; then
-	mount /data/media/0 /sdcard
-	if ( /tmp/bin/toybox mountpoint -q /sdcard/ ) ; then
-		home="/sdcard/MFPAPP" 
-	else
-		home="/data/media/0/MFPAPP"
-	fi
-else
-	if ( /tmp/bin/toybox mountpoint -q /usb_otg/ ) ; then 
-		home="/usb_otg/MFPAPP" 
-	else 
-		RUN_ABORT "4" "Need OTG or mounted /sdcard/ for stable working" 
-	fi
-fi
-rm -rf $home
-
-
-sm8250=false ; extsuper=false ; nam_device=190 ; extfw=false
-mkdir -pv $home ; mkdir -pv $home/payload
-mkdir -pv $home/imgs ; mkdir -pv $home/super ; mkdir -pv $home/nonsuper 
-mkdir -pv $home/newdatsuper ; mkdir -pv $home/fw ; mkdir -pv $home/newdat
-n=1
-[[ -d $home ]] || RUN_ABORT "21" "Cant creat $home folder"
-
 RUN_READ_ARG(){
 	for remove in $( grep "\"/storage/" $arguments ) ; do
 		dod1=${remove#*\"} ; dod1=${dod1%\"*}
-		dod2="/sdcard/"${dod1#*/*/*/*/}""
+		dod2="/data/media/0/"${dod1#*/*/*/*/}""
 		echo $remove | grep "\"/storage/" && sed -i 's|'$dod1'|'$dod2'|' $arguments
 	done
 	for remove in $( grep "\"/mnt/" $arguments ) ; do
@@ -144,108 +99,82 @@ RUN_READ_ARG(){
 
 	( grep "DISABLE VERITY" "$arguments" | grep -i "yes" ) && DM_VERY=true || DM_VERY=false
 
-
-
-	if ( grep "FLASH CUSTOM IMG" "$arguments" | grep -i "yes" ) ; then
-		nlines=$(grep -n "Path custom imgs" "$arguments" | awk '{print int($1)}')
-		flash_custom_img=false
-		for line in $nlines ; do
-			r=$(head -n$line "$arguments" | tail -n1)
-			if ( echo ${r%Path custom imgs*} | grep "#" ) ; then 
-				continue
-			else
-				imgC="${r#*\"}" ; imgC="${imgC%%\"*}"
-				imgP="${r%\"*}" ; imgP="${imgP##*\"}"
-				if [[ -z $imgC ]] || [[ -z $imgP ]] ; then
-					continue
-				else
-					if ( echo $imgC | grep "/" ) ; then 
-						if [[ -f $imgC ]] ; then
-							FimgC=$imgC
-							flash_custom_img=true
-						else
-							RUN_ABORT "31" "NOT FIND $imgC"
-						fi
-					else
-						if [[ -f $zipfolder/$imgC ]] ; then
-							FimgC=$zipfolder/$imgC
-							flash_custom_img=true
-						else
-							RUN_ABORT "32" "NOT FIND $imgC"
-						fi
-					fi
-					case $imgP in
-						system|vendor|odm|product|system_ext)
-							mkdir $home/Csuperimg
-							cp "$FimgC" $home/Csuperimg/$imgP$newslot.img
-							;;
-						*)	
-							mkdir $home/Cimg
-							cp "$FimgC" $home/Cimg/$imgP.img
-							;;
-					esac
-				fi
-			fi
-		done
-	else
-		flash_custom_img=false
-	fi
-
-
-
 	if ( grep "REBOOT AFTER" "$arguments" | grep -i "system" ) ; then
-		rebootafter=true 
-		rebootARG=system
+		rebootafter=true ; rebootARG=system
 	elif ( grep "REBOOT AFTER" "$arguments" | grep -i "recovery" ) ; then
-		rebootafter=true 
-		rebootARG=recovery
+		rebootafter=true ; rebootARG=recovery
 	elif ( grep "REBOOT AFTER" "$arguments" | grep -i "bootloader" ) ; then
-		rebootafter=true
-		rebootARG=bootloader 
-	else 
-		rebootafter=false
-	fi
+		rebootafter=true ; rebootARG=bootloader 
+	else rebootafter=false ; fi
 
-	if ( grep "FLASH ROM" "$arguments" | grep -i "yes" ) ; then
-		name_rom=$(grep -i "path rom" "$arguments")
-		name_rom=${name_rom#*\"} ; name_rom=${name_rom%\"*}
+	nlines=$( grep -n "FLASH CUSTOM IMG" "$arguments" | awk '{print int($1)}' )
+	flash_custom_img=false
+	for line in $nlines ; do line=$(head -n$line "$arguments" | tail -n1)
+		if ( echo ${line%FLASH CUSTOM IMG*} | grep "#" ) ; then continue ; else
+			imgC="${r#*\"}" ; imgC="${imgC%%\"*}"
+			imgP="${r%\"*}" ; imgP="${imgP##*\"}"
+			if [[ -z $imgC ]] || [[ -z $imgP ]] ; then continue ; else
+				if ( echo $imgC | grep "/" ) && [[ -f $imgC ]] ; then 
+					FimgC=$imgC
+				elif ! ( echo $imgC | grep "/" ) && [[ -f $zipfolder/$imgC ]] ; then
+					FimgC=$zipfolder/$imgC
+				else RUN_ABORT "32" "NOT FIND $imgC" ; fi
+				case $imgP in
+				system|vendor|odm|product|system_ext) 
+				echo "$FimgC-->>$imgP$newslot" >> $home/custom_imgs_for_super.txt 
+				;;
+					*)	if ( find /dev/block/by-name/ -name "$imgP$newslot" ) ; then
+							flash_custom_img=true
+							echo "$FimgC-->>$imgP$newslot" >> $home/custom_imgs_for_fw.txt 
+						elif ( find /dev/block/by-name/ -name "$imgP" ) ; then
+							flash_custom_img=true
+							echo "$FimgC-->>$imgP" >> $home/custom_imgs_for_fw.txt 
+						;;
+	esac ; fi ; fi ; done
+
+	nlines=$( grep -n "FLASH ROM" "$arguments" | awk '{print int($1)}' )
+	flashrom=false ;
+	for line in $nlines ; do line=$(head -n$line "$arguments" | tail -n1)
+		if ( echo "${line%FLASH ROM*}" | grep "#" ) ; then continue ; else
+		name_rom=${line%\"*} ; name_rom=${name_rom#*\"}
 		if [[ -z $name_rom ]] ; then flashrom=false ; else
 			if ( echo $name_rom | grep "/" ) ; then romzip=$name_rom
 			else romzip="$zipfolder/$name_rom" ; fi
-			if [[ -f $romzip ]] ; then flashrom=true
-			else 
-			RUN_ABORT "5" "Not find $romzip"
-		fi ; fi
-	else flashrom=false ; fi
+			if [[ -f $romzip ]] ; then $flashrom && RUN_ABORT "35" " "\
+				"You specified more than one ROM, \
+				remove the unnecessary install ROM from \
+				arguments.txt or comment it out with #" " "
+				flashrom=true
+			else RUN_ABORT "5" "Not find $romzip" ; fi
+		fi
+	done
 
-	if ( grep "FLASH ADDITIONAL ZIPS" "$arguments" | grep -i "yes" ) ; then
-		nlines=$(grep -n "Path additional zips" "$arguments" | awk '{print int($1)}')
-		for line in $nlines ; do
-			list=$(head -n$line "$arguments" | tail -n1)
-			list=$( echo "$list" | grep -q "\.zip" && echo $list ; echo "$list" | grep -q "\.apk" && echo $list ) 
-			name_ADDzip=${list#*\"} ; name_ADDzip=${name_ADDzip%\"*}
-			if ( echo ${list%Path additional zips*} | grep '#' ) ; then 
-				continue
+	nlines=$(grep -n "FLASH ADDITIONAL ZIPS" "$arguments" | awk '{print int($1)}')
+	for line in $nlines ; do
+		list=$(head -n$line "$arguments" | tail -n1)
+		list=$( echo "$list" | grep -q "\.zip" && echo $list ; echo "$list" | grep -q "\.apk" && echo $list ) 
+		name_ADDzip=${list#*\"} ; name_ADDzip=${name_ADDzip%\"*}
+		if ( echo ${list%Path additional zips*} | grep '#' ) ; then 
+			continue
+		else
+			if [[ -z $name_ADDzip ]] ; then 
+				continue 
 			else
-				if [[ -z $name_ADDzip ]] ; then 
-					continue 
-				else
-					if ( echo $name_ADDzip | grep "/" ) ; then 
-						ADDzip=$name_ADDzip
-					else 
-						ADDzip="$zipfolder/$name_ADDzip" 
-					fi
-					if [[ -f $ADDzip ]] ; then 
-						listADDzip="$listADDzip\n$ADDzip"
-					else 
-						
-						RUN_ABORT "6" "Not find $ADDzip" 
-					fi 
+				if ( echo $name_ADDzip | grep "/" ) ; then 
+					ADDzip=$name_ADDzip
+				else 
+					ADDzip="$zipfolder/$name_ADDzip" 
 				fi
+				if [[ -f $ADDzip ]] ; then 
+					listADDzip="$listADDzip\n$ADDzip"
+				else
+					RUN_ABORT "6" "Not find $ADDzip" 
+				fi 
 			fi
-		done
-		if ( echo -e "$listADDzip" | grep "/" ) ; then flashADDzip=true ; else flashADDzip=false ; fi
-	else flashADDzip=false ; fi
+		fi
+	done
+	
+	if ( echo -e "$listADDzip" | grep "/" ) ; then flashADDzip=true ; else flashADDzip=false ; fi
 
 	if ( grep "FLASH RECOVERY" "$arguments" | grep -i "yes" ) ; then
 		name_rec=$(grep -i "path recovery" "$arguments")
@@ -1161,6 +1090,55 @@ RUN_MV_CIMG(){
 		done
 	fi
 	}
+
+
+
+
+if ( echo "$( dirname "$arg3" )" | grep ' ' ) || ( echo "$arg3" | grep ' ' ) ; then
+	RUN_ABORT "3" "Please remove spaces from the path name" \
+	"Bad path /sdcard/folder name/mfp.zip" \
+	"Good path /sdcard/foldername/folder-name/mfp.zip"
+fi
+zipname="$(basename "$arg3")" ; zipfolder="$(dirname "$arg3")"
+
+( mountpoint -q /data ) || mount /data
+unzip -o "$arg3" "busybox" -d /tmp/bin/
+chmod 777 /tmp/bin/busybox
+mkdir -pv /tmp/bin
+mkdir -pv /tmp/lib
+mkdir -pv /tmp/twrp
+/tmp/bin/busybox unzip -o "$arg3" -d /tmp/
+chmod 777 /tmp/bin/*
+chmod 777 /tmp/lib/*
+find /tmp/bin/* -exec ln -s {} /system/bin \; 
+export PATH=/tmp/bin:$PATH 
+slot_num=$(bootctl get-current-slot) ; slot_ab=$(bootctl get-suffix $slot_num)
+if ( /tmp/bin/toybox mountpoint -q /sdcard/ ) ; then
+	home="/sdcard/MFPAPP"
+elif ( /tmp/bin/toybox mountpoint -q /data/ ) ; then
+	mount /data/media/0 /sdcard
+	if ( /tmp/bin/toybox mountpoint -q /sdcard/ ) ; then
+		home="/sdcard/MFPAPP" 
+	else
+		home="/data/media/0/MFPAPP"
+	fi
+else
+	if ( /tmp/bin/toybox mountpoint -q /usb_otg/ ) ; then 
+		home="/usb_otg/MFPAPP" 
+	else 
+		RUN_ABORT "4" "Need OTG or mounted /sdcard/ for stable working" 
+	fi
+fi
+rm -rf $home
+
+
+sm8250=false ; extsuper=false ; nam_device=190 ; extfw=false
+mkdir -pv $home ; mkdir -pv $home/payload
+mkdir -pv $home/imgs ; mkdir -pv $home/super ; mkdir -pv $home/nonsuper 
+mkdir -pv $home/newdatsuper ; mkdir -pv $home/fw ; mkdir -pv $home/newdat
+n=1
+[[ -d $home ]] || RUN_ABORT "21" "Cant creat $home folder"
+
 
 
 CimgFT=false
