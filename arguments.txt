@@ -32,7 +32,7 @@ Apply only in case of problems with starting the system and problems with work s
 
 ##################################################################################################
 
-The slot where you want to install the ROM. Only works if you install "FLASH ROM"
+The slot where you want to install the ROM. Only works if you install rom
 example "_a" or "_b"
 
 		INSTALL SLOT - "default"
@@ -91,7 +91,7 @@ You can add more line, just copy, and you can comment line #
 
 		FLASH CUSTOM IMGS - "" flash to -->""
 		FLASH CUSTOM IMGS - "" flash to -->""
-		
+
 		#FLASH CUSTOM IMGS - "nonused.img" flash to -->"vendor"
 		#FLASH CUSTOM IMGS - "/usb_otg/new-folder/nonused.img" flash to -->"dtbo"
 

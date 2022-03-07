@@ -124,31 +124,45 @@ RUN_READ_ARG(){
 				else RUN_ABORT "32" "NOT FIND $imgC" ; fi
 				case $imgP in
 				system|vendor|odm|product|system_ext) 
-				echo "$FimgC-->>$imgP$newslot" >> $home/custom_imgs_for_super.txt 
-				;;
-					*)	if ( find /dev/block/by-name/ -name "$imgP$newslot" ) ; then
-							flash_custom_img=true
-							echo "$FimgC-->>$imgP$newslot" >> $home/custom_imgs_for_fw.txt 
-						elif ( find /dev/block/by-name/ -name "$imgP" ) ; then
-							flash_custom_img=true
-							echo "$FimgC-->>$imgP" >> $home/custom_imgs_for_fw.txt 
+													echo "$FimgC-->>$imgP$newslot" >> $home/custom_imgs_for_super.txt 
+													;;
+													*)	
+													if ( find /dev/block/by-name/ -name "$imgP$newslot" ) ; then
+														flash_custom_img=true
+														echo "$FimgC-->>$imgP$newslot" >> $home/custom_imgs_for_fw.txt 
+													elif ( find /dev/block/by-name/ -name "$imgP" ) ; then
+														flash_custom_img=true
+														echo "$FimgC-->>$imgP" >> $home/custom_imgs_for_fw.txt ; fi
 						;;
 	esac ; fi ; fi ; done
 
 	nlines=$( grep -n "FLASH ROM" "$arguments" | awk '{print int($1)}' )
 	flashrom=false ;
-	for line in $nlines ; do line=$(head -n$line "$arguments" | tail -n1)
-		if ( echo "${line%FLASH ROM*}" | grep "#" ) ; then continue ; else
-		name_rom=${line%\"*} ; name_rom=${name_rom#*\"}
-		if [[ -z $name_rom ]] ; then flashrom=false ; else
-			if ( echo $name_rom | grep "/" ) ; then romzip=$name_rom
-			else romzip="$zipfolder/$name_rom" ; fi
-			if [[ -f $romzip ]] ; then $flashrom && RUN_ABORT "35" " "\
-				"You specified more than one ROM, \
-				remove the unnecessary install ROM from \
-				arguments.txt or comment it out with #" " "
-				flashrom=true
-			else RUN_ABORT "5" "Not find $romzip" ; fi
+	for lines in $nlines ; do 
+		line=$(head -n$lines "$arguments" | tail -n1)
+		if ( echo ${line%FLASH ROM*} | grep "#" ) ; then 
+			continue 
+		else
+			name_rom=${line#*\"}
+			name_rom=${name_rom%\"*} 
+			if [[ -z $name_rom ]] ; then 
+				flashrom=false 
+			else
+				if ( echo $name_rom | grep "/" ) ; then 
+					romzip=$name_rom
+				else 
+					romzip="$zipfolder/$name_rom" 
+				fi
+				if [[ -f $romzip ]] ; then 
+					$flashrom && RUN_ABORT "35" " "\
+					"You specified more than one ROM, \
+					remove the unnecessary install ROM from \
+					arguments.txt or comment it out with #" " "
+					flashrom=true
+				else 
+					RUN_ABORT "5" "Not find $romzip" 
+				fi
+			fi 
 		fi
 	done
 
@@ -198,9 +212,9 @@ RUN_READ_ARG(){
 				mkdir -pv /tmp/bin/twrp/
 				cpio -H newc -o < /ramdisk-files.txt > /tmp/bin/twrp/ramdisk.cpio
 			else
-				RUN_ABORT "8" "Ramdisk files have been modified, unable \
-				to create ramdisk to flash, fastboot boot twrp or reboot \
-				twrp and try again flash mfp with options RECOVERY REFLASH"
+				RUN_ABORT "8" "Ramdisk files have been modified, unable" \
+				"to create ramdisk to flash, fastboot boot twrp or reboot" \
+				"twrp and try again flash mfp with options RECOVERY REFLASH"
 			fi
 		else reflashrec=false
 		fi
@@ -227,22 +241,26 @@ RUN_LOGO(){
 	ui_print " "
 	ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	ui_print " "
-	ui_print "-  MAKERW: $( $flashrw && echo "YES" || echo NO )"
-	ui_print "-  DFE: $( $flashdfe && echo "YES" || echo NO )"
+	$flashrw && ui_print "-  MAKERW: $( $flashrw && echo "YES" || echo NO )"
+	$flashdfe && ui_print "-  DFE: $( $flashdfe && echo "YES" || echo NO )"
 	ui_print "-  INSLOT-A/B: $newslot"
-	ui_print "-  REFLASH RECOVERY: $( $reflashrec && echo "YES" || echo NO )"
-	ui_print "-  FLASH RECOVERY: $( $flashrec && echo "YES" || echo NO )"
-	ui_print "-  FLASH ROM: $( $flashrom && echo "YES" || echo NO )"
-	ui_print "-  ADDITIONAL ZIPS: $( $flashADDzip && echo "YES" || echo "NO" )"
-	ui_print "-  WIPE DATA AFTER FLASHING: $( $wipedata && echo "YES" || echo "NO" )"
-	ui_print "-  REMOVE MFPAPP FOLDER AFTER FLASHING: $( $delhome && echo "YES" || echo "NO" )"
-	ui_print "-  REBOOT AFTER FLASHING: $( $rebootafter && echo "YES : $rebootARG" || echo "NO" )"
-	ui_print "-  HIDE NOT ENCRYPTED: $( $hide_no_encrypted && echo "YES" || echo "NO" )"
-	ui_print "-  DISABLE VERIFICATION: $( $DM_VERI && echo "YES" || echo "NO" )"
-	ui_print "-  DISABLE VERITY: $( $DM_VERY && echo "YES" || echo "NO" )"
-	ui_print "-  BOOT PATCH: $( $boot_patch && echo "YES" || echo "NO" )"
-	ui_print "-  VENDOR BOOT PATCH: $( $vendor_boot_patch && echo "YES" || echo "NO" )"
-	ui_print "-  FLASH CUSTOM IMG: $( $flash_custom_img && echo "YES" || echo "NO" )"
+	$reflashrec && ui_print "-  REFLASH RECOVERY: $( $reflashrec && echo "YES" || echo NO )"
+	$flashrec && ui_print "-  FLASH RECOVERY: $( $flashrec && echo "YES" || echo NO )"
+	$flashrom && ui_print "-  FLASH ROM: $( $flashrom && echo "YES" || echo NO )"
+	$flashADDzip && ui_print "-  ADDITIONAL ZIPS: $( $flashADDzip && echo "YES" || echo "NO" )"
+	$wipedata && ui_print "-  WIPE DATA AFTER FLASHING: $( $wipedata && echo "YES" || echo "NO" )"
+	$delhome && ui_print "-  REMOVE MFPAPP FOLDER AFTER FLASHING: $( $delhome && echo "YES" || echo "NO" )"
+	$rebootafter && ui_print "-  REBOOT AFTER FLASHING: $( $rebootafter && echo "YES : $rebootARG" || echo "NO" )"
+	$hide_no_encrypted && ui_print "-  HIDE NOT ENCRYPTED: $( $hide_no_encrypted && echo "YES" || echo "NO" )"
+	$DM_VERI && ui_print "-  DISABLE VERIFICATION: $( $DM_VERI && echo "YES" || echo "NO" )"
+	$DM_VERY && ui_print "-  DISABLE VERITY: $( $DM_VERY && echo "YES" || echo "NO" )"
+	$boot_patch && ui_print "-  BOOT PATCH: $( $boot_patch && echo "YES" || echo "NO" )"
+	$vendor_boot_patch && ui_print "-  VENDOR BOOT PATCH: $( $vendor_boot_patch && echo "YES" || echo "NO" )"
+	$flash_custom_img && ui_print "-  FLASH CUSTOM IMG: $( $flash_custom_img && echo "YES" || echo "NO" )"
+	$FIX_FPS && ui_print "-  FIX 120HZ: YES"
+	$FORCE_FPS && ui_print "-  FORCE 120HZ FOR ALL APPS: YES"
+
+
 	if ! $flashADDzip && ! $flashrom && ! $flashrec ; then 
 		ui_print " "
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------" ; fi
@@ -1075,7 +1093,6 @@ RUN_FLASH_ZIPS(){
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 	}
-
 RUN_FORCE_FPS(){
 
 
@@ -1245,10 +1262,10 @@ if ( [[ $permm == 41 ]] && ! $flashrom ) || ( $flashrw && ! $flashrom ) ; then
 
 $flashdfe && RUN_DFE 
 $hide_no_encrypted && RUN_INIT_PATCH
-RUN_POST_PATCH
-$flashADDzip && RUN_FLASH_ZIPS
 $FORCE_FPS && RUN_FORCE_FPS
 $FIX_FPS && RUN_FIX_FPS
+RUN_POST_PATCH
+$flashADDzip && RUN_FLASH_ZIPS
 RUN_ALL_MAUNT --umount
 RUN_MOUNT_SUPER --umount-super
 RUN_MOUNT_SUPER --umount-fw
