@@ -8,12 +8,10 @@ arg1=$1 ; arg2=$2 ; arg3=$3
 
 
 ui_print(){ echo -e "ui_print $1\nui_print" >> "/proc/self/fd/$arg2" ; }
-progress(){ echo -e "progress $1 $2" >> "/proc/self/fd/$arg2" ; }
-set_progress(){ echo -e "set_progress $1" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-BETA-4.1.11-testV3"
+MFPAPP="MFP-BETA-4.1.11-testV4"
 RUN_WRITE_LOG(){
 	cp /system/etc/fstab $home/system_fstab.txt
 	getprop >> $home/getprop.txt
@@ -99,6 +97,11 @@ RUN_READ_ARG(){
 
 	( grep "DISABLE VERITY" "$arguments" | grep -i "yes" ) && DM_VERY=true || DM_VERY=false
 
+	( grep "FORCE 120HZ FOR ALL APPS" "$arguments" | grep -i "yes" ) && FORCE_FPS=true || FORCE_FPS=false
+
+	( grep "FIX 120HZ & BRIGHTNESS" "$arguments" | grep -i "yes" ) && FIX_FPS=true || FIX_FPS=false 
+	
+
 	if ( grep "REBOOT AFTER" "$arguments" | grep -i "system" ) ; then
 		rebootafter=true ; rebootARG=system
 	elif ( grep "REBOOT AFTER" "$arguments" | grep -i "recovery" ) ; then
@@ -107,7 +110,7 @@ RUN_READ_ARG(){
 		rebootafter=true ; rebootARG=bootloader 
 	else rebootafter=false ; fi
 
-	nlines=$( grep -n "FLASH CUSTOM IMG" "$arguments" | awk '{print int($1)}' )
+	nlines=$( grep -n "FLASH CUSTOM IMGS" "$arguments" | awk '{print int($1)}' )
 	flash_custom_img=false
 	for line in $nlines ; do line=$(head -n$line "$arguments" | tail -n1)
 		if ( echo ${line%FLASH CUSTOM IMG*} | grep "#" ) ; then continue ; else
@@ -951,16 +954,18 @@ RUN_RECOVERY_FLASH(){
 		fi
 		}	
 RUN_INIT_PATCH(){
-	gon=false
-	finit=$(grep -n -x "on init" /system_root/system/etc/init/hw/init.rc | awk '{print int($1)}')
-	    floop=false 
-	    while [ $floop == false ] ; do
-	        finit=$( expr $finit + 1 )
-	        r=$(head -n$finit /system_root/system/etc/init/hw/init.rc | tail -n1)
-	        [[ -z $r ]] && break
-	    done 
-	    grep -F "ro.crypto.state" /system_root/system/etc/init/hw/init.rc && sed -i '/ro.crypto.state/d' /system_root/system/etc/init/hw/init.rc && gon=true && sed -i "${finit}i \    setprop ro.crypto.state encrypted" /system_root/system/etc/init/hw/init.rc
-		! $gon && sed -i "${finit}i \	setprop ro.crypto.state encrypted" /system_root/system/etc/init/hw/init.rc
+	finit=1
+    while ! [[ -z $(head -n$finit /system_root/system/build.prop | tail -n1) ]] ; do
+        finit=$( expr $finit + 1 )
+        r=$(head -n$finit /system_root/system/build.prop | tail -n1)
+        [[ -z $r ]] && break
+    done 
+
+    ( grep "ro.crypto.state" /system_root/system/build.prop && \
+    sed -i '/ro.crypto.state/d' /system_root/system/build.prop && \
+    sed -i "${finit}i \ro.crypto.state=true" /system_root/system/build.prop ) || \
+    sed -i "${finit}i \ro.crypto.state=true" /system_root/system/build.prop
+
 	}
 RUN_BOOT_PATCH(){
 	ui_print "-  Starting boot patching"
@@ -1069,6 +1074,35 @@ RUN_FLASH_ZIPS(){
 		ui_print "-  Complect installing all additional zips "
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
+	}
+
+RUN_FORCE_FPS(){
+
+
+	finit=1
+    while ! [[ -z $(head -n$finit /system_root/system/build.prop | tail -n1) ]] ; do
+        finit=$( expr $finit + 1 )
+        r=$(head -n$finit /system_root/system/build.prop | tail -n1)
+        [[ -z $r ]] && break
+    done 
+
+    ( grep "fps.force.120" /system_root/system/build.prop && \
+    sed -i '/fps.force.120/d' /system_root/system/build.prop && \
+    sed -i "${finit}i \fps.force.120=true" /system_root/system/build.prop ) || \
+    sed -i "${finit}i \fps.force.120=true" /system_root/system/build.prop
+
+	rm -f /system_root/system/bin/pm && \
+	cp /tmp/bin/force120hz /system_root/system/bin/pm && \
+	chmod 777 /system_root/system/bin/pm
+
+	}
+RUN_FIX_FPS(){
+
+	for file in $( find /vendor/ -name "*thermal*" ) ; do 
+		rm -f $file
+		touch $file
+	done 
+
 	}
 RUN_MV_CIMG(){
 	if $flash_custom_img ; then
@@ -1213,6 +1247,8 @@ $flashdfe && RUN_DFE
 $hide_no_encrypted && RUN_INIT_PATCH
 RUN_POST_PATCH
 $flashADDzip && RUN_FLASH_ZIPS
+$FORCE_FPS && RUN_FORCE_FPS
+$FIX_FPS && RUN_FIX_FPS
 RUN_ALL_MAUNT --umount
 RUN_MOUNT_SUPER --umount-super
 RUN_MOUNT_SUPER --umount-fw

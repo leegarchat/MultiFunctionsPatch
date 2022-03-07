@@ -8,54 +8,55 @@
 Patch block
 example "yes" Or specify anything where there is no word yes "no" "nothing" "non"
 
-	MAKERW_____________________"no"
-	DFE________________________"no"
-	FIX PROXIMETER_____________"no" | <--Not working, in progress
-	RECOVERY REFLASH___________"no" | <--The function works exactly the same as the built-in function in TWRP
+		MAKERW_ - "no"
+		DFE - "no"
+		FIX PROXIMETER - "no" | <--Not working, in progress
+
+		RECOVERY REFLASH - "no" | <--The function works exactly the same as the built-in function in TWRP
 
 Miui only fix ( not working , in progress )
 
-	FIX 120HZ & BRIGHTNESS_____"no" | <--Not working, in progress
-	FORCE 120HZ FOR ALL APPS___"no" | <--Not working, in progress
+		FIX 120HZ & BRIGHTNESS - "no"
+		FORCE 120HZ FOR ALL APPS - "no"
 
 Maybe needed to run a system with DFE or MAKERW without using Magisk
 
-	DISABLE VERITY_____________"no"
-	DISABLE VERIFICATION_______"no"
+		DISABLE VERITY - "no"
+		DISABLE VERIFICATION - "no"
 
 Apply only in case of problems with starting the system and problems with work system
 
-	HIDE NOT ENCRYPTED_________"no"
-	POST VENDORBOOT PATCH______"no"
-	POST BOOT PATCH____________"no"
+		HIDE NOT ENCRYPTED - "no"
+		POST VENDORBOOT PATCH - "no"
+		POST BOOT PATCH - "no"
 
 ##################################################################################################
 
 The slot where you want to install the ROM. Only works if you install "FLASH ROM"
 example "_a" or "_b"
 
-	INSTALL SLOT - "default"
+		INSTALL SLOT - "default"
 __________________________________________________________________________________________________
 
 Specified to automatically reboot to the desired location after the successful completion of the script
 example "recovery" "system" "bootloader"
 
-	REBOOT AFTER - "Name for reboot"
+		REBOOT AFTER - "Name for reboot"
 __________________________________________________________________________________________________
 
 Cleanup after successfully installing the script
 example "yes" Or specify anything where there is no word yes "no" "nothing" "non"
 
-	REMOVE MFPAPP FOLDER - "nope"
-	WIPE DATA - "no" | <--The function works exactly the same as the built-in function in TWRP
+		REMOVE MFPAPP FOLDER - "nope"
+		WIPE DATA - "no"
 
-	FORMAT DATA - "no" | <--Not working, in progress
+		FORMAT DATA - "no" | <--Not working, in progress
 __________________________________________________________________________________________________
 
-Data partition backup functions
+Data partition backup functions <--Not working, in progress
 
-	BACKUP DATA "no" --> backup name "example-my-backup-miui" | <--Not working, in progress
-	RESTORE DATA "no" --> backup name "exemple-my-backup-miui" | <--Not working, in progress
+		BACKUP DATA "no" --> backup name "example-my-backup-miui" | <--Not working, in progress
+		RESTORE DATA "no" --> backup name "exemple-my-backup-miui" | <--Not working, in progress
 
 ##################################################################################################
 
@@ -64,10 +65,10 @@ Or you can specify the full path to the file "filename.zip|.7z|.rar|.img" "/sdca
 You can add an extra line, and comment out the unused one, if there are more than two active lines, there will be an error
 You can add more line, just copy, and you can comment line #
 
-	FLASH RECOVERY - ""
-	FLASH ROM - ""
-	#FLASH RECOVERY - "/sdcard/Download/Nonused-TWRP.img|.zip"
-	#FLASH ROM - "nonused-ROM.zip|.7z|.rar"
+		FLASH RECOVERY - ""
+		FLASH ROM - ""
+		#FLASH RECOVERY - "/sdcard/Download/Nonused-TWRP.img|.zip"
+		#FLASH ROM - "nonused-ROM.zip|.7z|.rar"
 
 ##################################################################################################
 
@@ -75,10 +76,11 @@ You can add more line, just copy, and you can comment line #
 "Gapps.zip" or "magisk.zip" or "kernel.zip" or full path "/sdcard/folder/folder/filename.zip" 
 You can add more line, just copy, and you can comment line #
 
-	Path additional zips - ""
-	Path additional zips - ""
-	#Path additional zips - "nonused-additional.zip|.apk"
-	#Path additional zips - "/sdcard/addzip/nonused-additional.zip|.apk"
+		FLASH ADDITIONAL ZIPS - ""
+		FLASH ADDITIONAL ZIPS - ""
+
+		#FLASH ADDITIONAL ZIPS - "nonused-additional.zip|.apk"
+		#FLASH ADDITIONAL ZIPS - "/sdcard/addzip/nonused-additional.zip|.apk"
 
 ###################################################################################################
 
@@ -87,7 +89,16 @@ Example "custom.img" or "/patch/folder/custom.img" flash to -> "dtbo"
 Example "custom.img" or "/patch/folder/custom.img" flash to -> "vendor"
 You can add more line, just copy, and you can comment line #
 
-	Path custom imgs - "" flash to -->""
-	Path custom imgs - "" flash to -->""
-	#Path custom imgs - "nonused.img" flash to -->"vendor"
-	#Path custom imgs - "/usb_otg/new-folder/nonused.img" flash to -->"dtbo"
+		FLASH CUSTOM IMGS - "" flash to -->""
+		FLASH CUSTOM IMGS - "" flash to -->""
+		
+		#FLASH CUSTOM IMGS - "nonused.img" flash to -->"vendor"
+		#FLASH CUSTOM IMGS - "/usb_otg/new-folder/nonused.img" flash to -->"dtbo"
+
+
+#################################################################################################
+#################################################################################################
+#################################################################################################
+#################################################################################################
+#################################################################################################
+#################################################################################################

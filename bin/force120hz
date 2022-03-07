@@ -1,0 +1,7 @@
+#!/system/bin/sh
+force_fps(){
+    if ! ( cmd package list packages -a | grep -q "powerkeeper" ) ; then force_fps
+    else cmd package disable com.miui.powerkeeper/.statemachine.PowerStateMachineService ; fi
+    }
+if ! [[ -z $( getprop fps.force.120 ) ]] ; then ; force_fps $ ; fi
+cmd package "$@"
