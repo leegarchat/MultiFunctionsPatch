@@ -11,7 +11,7 @@ ui_print(){ echo -e "ui_print $1\nui_print" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-BETA-4.1.11-testV4"
+MFPAPP="MFP-BETA-4.1.11-testV5"
 RUN_WRITE_LOG(){
 	cp /system/etc/fstab $home/system_fstab.txt
 	getprop >> $home/getprop.txt
@@ -113,9 +113,9 @@ RUN_READ_ARG(){
 	nlines=$( grep -n "FLASH CUSTOM IMGS" "$arguments" | awk '{print int($1)}' )
 	flash_custom_img=false
 	for line in $nlines ; do line=$(head -n$line "$arguments" | tail -n1)
-		if ( echo ${line%FLASH CUSTOM IMG*} | grep "#" ) ; then continue ; else
-			imgC="${r#*\"}" ; imgC="${imgC%%\"*}"
-			imgP="${r%\"*}" ; imgP="${imgP##*\"}"
+		if ( echo ${line%FLASH CUSTOM IMGS*} | grep "#" ) ; then continue ; else
+			imgC="${line#*\"}" ; imgC="${imgC%%\"*}"
+			imgP="${line%\"*}" ; imgP="${imgP##*\"}"
 			if [[ -z $imgC ]] || [[ -z $imgP ]] ; then continue ; else
 				if ( echo $imgC | grep "/" ) && [[ -f $imgC ]] ; then 
 					FimgC=$imgC
@@ -123,16 +123,14 @@ RUN_READ_ARG(){
 					FimgC=$zipfolder/$imgC
 				else RUN_ABORT "32" "NOT FIND $imgC" ; fi
 				case $imgP in
-				system|vendor|odm|product|system_ext) 
-													echo "$FimgC-->>$imgP$newslot" >> $home/custom_imgs_for_super.txt 
-													;;
-													*)	
-													if ( find /dev/block/by-name/ -name "$imgP$newslot" ) ; then
-														flash_custom_img=true
-														echo "$FimgC-->>$imgP$newslot" >> $home/custom_imgs_for_fw.txt 
-													elif ( find /dev/block/by-name/ -name "$imgP" ) ; then
-														flash_custom_img=true
-														echo "$FimgC-->>$imgP" >> $home/custom_imgs_for_fw.txt ; fi
+				system|vendor|odm|product|system_ext) echo "$FimgC-->>$imgP$newslot" >> $home/custom_imgs_for_super.txt ;;
+												   *)	
+				if ( find /dev/block/by-name/ -name "$imgP$newslot" ) ; then
+					flash_custom_img=true
+					echo "$FimgC-->>$imgP" >> $home/custom_imgs_for_fw.txt 
+				elif ( find /dev/block/by-name/ -name "$imgP" ) ; then
+					flash_custom_img=true
+					echo "$FimgC-->>$imgP" >> $home/custom_imgs_for_fw.txt ; fi
 						;;
 	esac ; fi ; fi ; done
 
@@ -214,7 +212,7 @@ RUN_READ_ARG(){
 			else
 				RUN_ABORT "8" "Ramdisk files have been modified, unable" \
 				"to create ramdisk to flash, fastboot boot twrp or reboot" \
-				"twrp and try again flash mfp with options RECOVERY REFLASH"
+				"twrp and try again flash mfp with options RECOVERY REFLASH" 
 			fi
 		else reflashrec=false
 		fi
@@ -792,6 +790,7 @@ RUN_RECOVERY_REFLASH(){
 	rm -rf "twrp" "ramdisk*" "*.img" "kernel*"
 	}
 RUN_FINAL(){
+	RUN_FW_FLASH
 	if $DM_VERY || $DM_VERI ; then
 		if [ $newslot == $slot_ab ] ; then
 			$DM_VERY && avbctl --force disable-verity 
@@ -1022,13 +1021,19 @@ RUN_VENDORBOOT_PATCH(){
 	}
 RUN_FW_FLASH(){
 	ui_print "-  Starting Flashing FW"
-	if $flashfw ; then 
-		for fw in $( find $home/fw/*img $home/boot/*img ) ; do
-		    fwname=$( basename ${fw%.img*} )
-		    ui_print "-  Flashing inbuild $fwname"
-		    dd if=$fw of=/dev/block/by-name/$fwname$newslot
-		done
-	fi
+	for fw in $( find $home/fw/*img $home/boot/*img ) ; do
+	    fwname=$( basename ${fw%.img*} )
+	    ui_print "-  Flashing inbuild $fwname"
+	    if ( file $fw | grep "sparse" ) ; then 
+	    	simg2img $fw $fw.row
+	    	rm -f $fw ; mv $fw.row $fw
+	    fi
+	    if ( find /dev/block/by-name/ -name "$fwname" ) ; then
+	    	dd if=$fw of=/dev/block/by-name/$fwname
+	    elif ( find /dev/block/by-name/ -name "$fwname$newslot" ) ; then
+	    	dd if=$fw of=/dev/block/by-name/$fwname$newslot
+	    fi
+	done
 	}
 RUN_RECOVERY_FLASH_SM8250(){
 	ui_print "-  Starting Flashing twrp vashy for SM8250"
@@ -1095,7 +1100,7 @@ RUN_FLASH_ZIPS(){
 	}
 RUN_FORCE_FPS(){
 
-
+	ui_print "-  Forcing fps for all apps"
 	finit=1
     while ! [[ -z $(head -n$finit /system_root/system/build.prop | tail -n1) ]] ; do
         finit=$( expr $finit + 1 )
@@ -1105,8 +1110,8 @@ RUN_FORCE_FPS(){
 
     ( grep "fps.force.120" /system_root/system/build.prop && \
     sed -i '/fps.force.120/d' /system_root/system/build.prop && \
-    sed -i "${finit}i \fps.force.120=true" /system_root/system/build.prop ) || \
-    sed -i "${finit}i \fps.force.120=true" /system_root/system/build.prop
+    sed -i "${finit}i fps.force.120=true" /system_root/system/build.prop ) || \
+    sed -i "${finit}i fps.force.120=true" /system_root/system/build.prop
 
 	rm -f /system_root/system/bin/pm && \
 	cp /tmp/bin/force120hz /system_root/system/bin/pm && \
@@ -1114,34 +1119,39 @@ RUN_FORCE_FPS(){
 
 	}
 RUN_FIX_FPS(){
+	
+	for file in $( find /tmp/bin/system_root/ /tmp/bin/vendor/ ) ; do 
+		mkdir -pv $( dirname ${file#*/tmp/bin} )
+		cp -f $file ${file#*/tmp/bin}
+		chmod 777 ${file#*/tmp/bin}
+	done
 
-	for file in $( find /vendor/ -name "*thermal*" ) ; do 
-		rm -f $file
-		touch $file
-	done 
 
 	}
 RUN_MV_CIMG(){
-	if $flash_custom_img ; then
-		for f in $( find $home/Cimg/ ) ; do 
-			if [[ -f $f ]] ; then
-				rm -f $home/fw/$( basename $f )
-				cp -f $f $home/fw/
-			else 
-				continue
-			fi
-		done
-		for f in $( find $home/Csuperimg/ ) ; do
-			if [[ -f $f ]] ; then
-				rm -f $home/imgs/$( basename ${f%.img*} )$newslot.img
-				cp -f $f $home/imgs/
-			else
-				continue
-			fi
-		done
-	fi
+	nlines=$( grep -n "-->>" "$home/custom_imgs_for_fw.txt" | awk '{print int($1)}' )
+	for lines in $nlines ; do 
+		line=$(head -n$lines "$home/custom_imgs_for_fw.txt" | tail -n1)
+		pathCimg=${line%-->>*} ; flashtoCimg=${line#*-->>}
+		if ( file $pathCimg | grep "sparse" ) ; then
+			rm -f $home/fw/$flashtoCimg.img
+			simg2img $pathCimg $home/fw/$flashtoCimg.img
+		elif
+			cp -F $pathCimg $home/fw/$flashtoCimg.img
+		fi
+	done
+	nlines=$( grep -n "-->>" "$home/custom_imgs_for_super.txt" | awk '{print int($1)}' )
+	for lines in $nlines ; do 
+		line=$(head -n$lines "$home/custom_imgs_for_super.txt" | tail -n1)
+		pathCimg=${line%-->>*} ; flashtoCimg=${line#*-->>}
+		if ( file $pathCimg | grep "sparse" ) ; then
+			rm -f $home/fw/$flashtoCimg.img
+			simg2img $pathCimg $home/imgs/$flashtoCimg.img
+		elif
+			cp -F $pathCimg $home/imgs/$flashtoCimg.img
+		fi
+	done
 	}
-
 
 
 
@@ -1226,10 +1236,10 @@ if $flashrom || $flashADDzip || $flash_custom_img ; then
     if $flashrom ; then
 	    RUN_CHECK_ROM
 	    RUN_SINGL_STRUCTURES $?
-	    RUN_MV_CIMG
+	    $flash_custom_img && RUN_MV_CIMG
 	elif ! $flashrom && ( $flashADDzip || $flash_custom_img ) ; then
         RUN_DUMP_PART
-        RUN_MV_CIMG
+        $flash_custom_img && RUN_MV_CIMG
 	fi
     
 	if $flashADDzip || $flashdfe || $flashrw ; then 
@@ -1248,7 +1258,7 @@ if [[ $perm == 41 ]] ; then
 if ( [[ $permm == 41 ]] && ! $flashrom ) || ( $flashrw && ! $flashrom ) ; then 
 	RUN_ALL_MAUNT --umount
 	RUN_DUMP_PART
-	RUN_MV_CIMG
+	$flash_custom_img && RUN_MV_CIMG
 	RUN_ALL_RW
 		if $flashdfe || $flashADDzip ; then
 			RUN_MOUNT_SUPER --mount-super
@@ -1274,7 +1284,6 @@ if [[ $permm == 41 ]] || $flashrw || $flashrom ; then
 	if [[ $retpop == 40 ]] ; then 
 		ui_print "-  Flashing new SUPER partition. wait..."
 		simg2img $home/newsuper.img /dev/block/by-name/super
-		RUN_FW_FLASH
 
 	else
 		RUN_ABORT "19" "Something wrong: error 19"

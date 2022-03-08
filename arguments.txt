@@ -8,7 +8,7 @@
 Patch block
 example "yes" Or specify anything where there is no word yes "no" "nothing" "non"
 
-		MAKERW_ - "no"
+		MAKERW - "no"
 		DFE - "no"
 		FIX PROXIMETER - "no" | <--Not working, in progress
 
@@ -16,8 +16,8 @@ example "yes" Or specify anything where there is no word yes "no" "nothing" "non
 
 Miui only fix ( not working , in progress )
 
-		FIX 120HZ & BRIGHTNESS - "no"
-		FORCE 120HZ FOR ALL APPS - "no"
+		FIX 120HZ & BRIGHTNESS - "no" <--Experemental
+		FORCE 120HZ FOR ALL APPS - "no" <--Experemental
 
 Maybe needed to run a system with DFE or MAKERW without using Magisk
 
