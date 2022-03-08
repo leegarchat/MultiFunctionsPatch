@@ -123,14 +123,14 @@ RUN_READ_ARG(){
 					FimgC=$zipfolder/$imgC
 				else RUN_ABORT "32" "NOT FIND $imgC" ; fi
 				case $imgP in
-				system|vendor|odm|product|system_ext) echo "$FimgC-->>$imgP$newslot" >> $home/custom_imgs_for_super.txt ;;
+				system|vendor|odm|product|system_ext) echo "${Fimg}FLASHTOFLASH$imgP$newslot" >> $home/custom_imgs_for_super.txt ;;
 												   *)	
 				if ( find /dev/block/by-name/ -name "$imgP$newslot" ) ; then
 					flash_custom_img=true
-					echo "$FimgC-->>$imgP" >> $home/custom_imgs_for_fw.txt 
+					echo "${FimgC}FLASHTOFLASH$imgP" >> $home/custom_imgs_for_fw.txt 
 				elif ( find /dev/block/by-name/ -name "$imgP" ) ; then
 					flash_custom_img=true
-					echo "$FimgC-->>$imgP" >> $home/custom_imgs_for_fw.txt ; fi
+					echo "${FimgC}FLASHTOFLASH$imgP" >> $home/custom_imgs_for_fw.txt ; fi
 						;;
 	esac ; fi ; fi ; done
 
@@ -286,13 +286,17 @@ RUN_LOGO(){
 	fi
 	if $flash_custom_img ; then 
 		ui_print "------*******!!!CUSTOM IMGS!!!********-------"
-		for lines in $( grep -n "-->>" "$home/custom_imgs_for_fw.txt" | awk '{print int($1)}' ) ; do 
-			line=$(head -n$lines "$home/custom_imgs_for_fw.txt" | tail -n1)
-			ui_print "-  CUSTOM img for fw: $( basename ${line%-->>*} ) --> ${line#*-->>}"
+		nlines=$( grep -n "FLASHTOFLASH" "$home/custom_imgs_for_fw.txt" | awk '{print int($1)}' )
+		for line in $nlines ; do 
+			line=$(head -n$line "$home/custom_imgs_for_fw.txt" | tail -n1)
+			if [[ -z $line ]] ; then continue ; else
+			ui_print "-  CUSTOM img for fw: $( echo $( basename ${line%FLASHTOFLASH*} ) ) --> $( echo ${line#*FLASHTOFLASH} )" ; fi 
 		done
-		for lines in $( grep -n "-->>" "$home/custom_imgs_for_super.txt" | awk '{print int($1)}' ) ; do 
-			line=$(head -n$lines "$home/custom_imgs_for_super.txt" | tail -n1)
-			ui_print "-  CUSTOM img for super: $( basename ${line%-->>*} ) --> ${line#*-->>}"
+		nlines=$( grep -n "FLASHTOFLASH" "$home/custom_imgs_for_super.txt" | awk '{print int($1)}' )
+		for line in $nlines ; do 
+			line=$(head -n$line "$home/custom_imgs_for_super.txt" | tail -n1)
+			if [[ -z $line ]] ; then continue ; else 
+			ui_print "-  CUSTOM img for super: $( echo $( basename ${line%FLASHTOFLASH*} ) ) --> $( echo ${line#*FLASHTOFLASH} )" ; fi 
 		done
 		ui_print " "
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
@@ -391,18 +395,21 @@ RUN_MOUNT_SUPER(){
 	;;
 	--mount-fw)
 		if ! $extfw ; then
-		for fwimg in $( find $home/fw/*.img ) ; do
+		for fwimg in $( find $home/fw/*.img ) $( find $home/boot/*.img ) ; do
 			[[ -d /dev/block/backup ]] || mkdir /dev/block/backup
 			bakblock="/dev/block/backup/"
 			naked_name=$( basename ${fwimg%.img*} )
-			for block in $( find /dev/block/by-name/${naked_name}$slot_ab ) ; do
-				if ( file $block | grep "symbolic link" ) ; then
-					linkblock=$( readlink $block )
-					dd if=$linkblock of=${bakblock}$( basename $linkblock )
-					dd if=$fwimg of=$linkblock
-					echo "${linkblock}LOLLOLLOLFACK$fwimg" >> $home/list_block.txt
-				fi
-			done
+			if ! ( file /dev/block/by-name/$naked_name | grep "cannot open" ) ; then
+				block="/dev/block/by-name/$naked_name"
+			elif ! ( file /dev/block/by-name/$naked_name$slot_ab | grep "cannot open" ) ; then
+				block="/dev/block/by-name/$naked_name$slot_ab"
+			fi
+			if ( file $block | grep "symbolic link" ) ; then
+				linkblock=$( readlink $block )
+				dd if=$linkblock of=${bakblock}$( basename $linkblock )
+				dd if=$fwimg of=$linkblock
+				echo "${linkblock}LOLLOLLOLFACK$fwimg" >> $home/list_block.txt
+			fi
 		done
 		extfw=true
 	    fi
@@ -1024,6 +1031,9 @@ RUN_VENDORBOOT_PATCH(){
 	}
 RUN_FW_FLASH(){
 	ui_print "-  Starting Flashing FW"
+
+
+
 	for fw in $( find $home/fw/*img $home/boot/*img ) ; do
 	    fwname=$( basename ${fw%.img*} )
 	    ui_print "-  Flashing inbuild $fwname"
@@ -1031,9 +1041,9 @@ RUN_FW_FLASH(){
 	    	simg2img $fw $fw.row
 	    	rm -f $fw ; mv $fw.row $fw
 	    fi
-	    if ( find /dev/block/by-name/ -name "$fwname" ) ; then
+	    if ! ( file /dev/block/by-name/$fwname | grep "cannot open" ) ; then
 	    	dd if=$fw of=/dev/block/by-name/$fwname
-	    elif ( find /dev/block/by-name/ -name "$fwname$newslot" ) ; then
+	    elif ! ( file /dev/block/by-name/$fwname$newslot | grep "cannot open" ) ; then
 	    	dd if=$fw of=/dev/block/by-name/$fwname$newslot
 	    fi
 	done
@@ -1132,25 +1142,25 @@ RUN_FIX_FPS(){
 
 	}
 RUN_MV_CIMG(){
-	nlines=$( grep -n "-->>" "$home/custom_imgs_for_fw.txt" | awk '{print int($1)}' )
+	nlines=$( grep -n "FLASHTOFLASH" "$home/custom_imgs_for_fw.txt" | awk '{print int($1)}' )
 	for lines in $nlines ; do 
 		line=$(head -n$lines "$home/custom_imgs_for_fw.txt" | tail -n1)
-		pathCimg=${line%-->>*} ; flashtoCimg=${line#*-->>}
+		pathCimg=${line%FLASHTOFLASH*} ; flashtoCimg=${line#*FLASHTOFLASH}
 		if ( file $pathCimg | grep "sparse" ) ; then
 			rm -f $home/fw/$flashtoCimg.img
 			simg2img $pathCimg $home/fw/$flashtoCimg.img
-		elif
+		else
 			cp -F $pathCimg $home/fw/$flashtoCimg.img
 		fi
 	done
-	nlines=$( grep -n "-->>" "$home/custom_imgs_for_super.txt" | awk '{print int($1)}' )
+	nlines=$( grep -n "FLASHTOFLASH" "$home/custom_imgs_for_super.txt" | awk '{print int($1)}' )
 	for lines in $nlines ; do 
 		line=$(head -n$lines "$home/custom_imgs_for_super.txt" | tail -n1)
-		pathCimg=${line%-->>*} ; flashtoCimg=${line#*-->>}
+		pathCimg=${line%FLASHTOFLASH*} ; flashtoCimg=${line#*FLASHTOFLASH}
 		if ( file $pathCimg | grep "sparse" ) ; then
 			rm -f $home/fw/$flashtoCimg.img
 			simg2img $pathCimg $home/imgs/$flashtoCimg.img
-		elif
+		else
 			cp -F $pathCimg $home/imgs/$flashtoCimg.img
 		fi
 	done
