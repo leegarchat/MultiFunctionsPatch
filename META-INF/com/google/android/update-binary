@@ -286,10 +286,13 @@ RUN_LOGO(){
 	fi
 	if $flash_custom_img ; then 
 		ui_print "------*******!!!CUSTOM IMGS!!!********-------"
-		for name in $( find $home/Cimg/ $home/Csuperimg/ ) ; do
-			if [[ -f $name ]] ; then
-				ui_print "-  $( basename $name )"
-			fi
+		for lines in $( grep -n "-->>" "$home/custom_imgs_for_fw.txt" | awk '{print int($1)}' ) ; do 
+			line=$(head -n$lines "$home/custom_imgs_for_fw.txt" | tail -n1)
+			ui_print "-  CUSTOM img for fw: $( basename ${line%-->>*} ) --> ${line#*-->>}"
+		done
+		for lines in $( grep -n "-->>" "$home/custom_imgs_for_super.txt" | awk '{print int($1)}' ) ; do 
+			line=$(head -n$lines "$home/custom_imgs_for_super.txt" | tail -n1)
+			ui_print "-  CUSTOM img for super: $( basename ${line%-->>*} ) --> ${line#*-->>}"
 		done
 		ui_print " "
 		ui_print "------******!!!!!!!!!!!!!!!!!!!!******-------"
