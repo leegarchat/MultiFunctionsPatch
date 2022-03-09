@@ -11,7 +11,7 @@ ui_print(){ echo -e "ui_print $1\nui_print" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-BETA-4.1.11-testV5"
+MFPAPP="MFP-BETA-4.1.11-testV6"
 RUN_WRITE_LOG(){
 	cp /system/etc/fstab $home/system_fstab.txt
 	getprop >> $home/getprop.txt
@@ -191,18 +191,38 @@ RUN_READ_ARG(){
 	
 	if ( echo -e "$listADDzip" | grep "/" ) ; then flashADDzip=true ; else flashADDzip=false ; fi
 
-	if ( grep "FLASH RECOVERY" "$arguments" | grep -i "yes" ) ; then
-		name_rec=$(grep -i "path recovery" "$arguments")
-		name_rec=${name_rec#*\"} ; name_rec=${name_rec%\"*}
-		if [[ -z $name_rec ]] ; then flashrec=false ; else
-			if ( echo $name_rec | grep "/" ) ; then reczip=$name_rec
-			else reczip="$zipfolder/$name_rec" ; fi
-			if [[ -f $reczip ]] ; then flashrec=true
-			else
-				RUN_ABORT "7" "Not find $reczip"
-			fi ; fi
-	else flashrec=false ; fi
 
+
+	nlines=$( grep -n "FLASH RECOVERY" "$arguments" | awk '{print int($1)}' )
+	flashrec=false ;
+	for lines in $nlines ; do 
+		line=$(head -n$lines "$arguments" | tail -n1)
+		if ( echo ${line%FLASH RECOVERY*} | grep "#" ) ; then 
+			continue 
+		else
+			name_rec=${line#*\"}
+			name_rec=${name_rec%\"*} 
+			if [[ -z $name_rec ]] ; then 
+				flashrec=false 
+			else
+				if ( echo $name_rec | grep "/" ) ; then 
+					reczip=$name_rec
+				else 
+					reczip="$zipfolder/$name_rec" 
+				fi
+				if [[ -f $reczip ]] ; then 
+					$flashrec && RUN_ABORT "77" " "\
+					"You specified more than one RECOVERY, \
+					remove the unnecessary install RECOVERY from \
+					arguments.txt or comment it out with #" " "
+					flashrec=true
+				else 
+					RUN_ABORT "77" "Not find $reczip" 
+				fi
+			fi 
+		fi
+	done
+	
 	if ( grep "RECOVERY REFLASH" "$arguments" | grep -i "yes" ) ; then 
 		if $flashrom ; then  
 			reflashrec=true 
