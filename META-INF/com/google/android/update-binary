@@ -11,7 +11,7 @@ ui_print(){ echo -e "ui_print $1\nui_print" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-BETA-4.1.11-testV6"
+MFPAPP="MFP-BETA-4.1.11-testV7"
 RUN_WRITE_LOG(){
 	cp /system/etc/fstab $home/system_fstab.txt
 	getprop >> $home/getprop.txt
@@ -101,6 +101,8 @@ RUN_READ_ARG(){
 
 	( grep "FIX 120HZ & BRIGHTNESS" "$arguments" | grep -i "yes" ) && FIX_FPS=true || FIX_FPS=false 
 	
+	( grep "SM8250 SKIP CHECK" "$arguments" | grep -i "yes" ) && sm8250skip=true || sm8250skip=false 
+
 
 	if ( grep "REBOOT AFTER" "$arguments" | grep -i "system" ) ; then
 		rebootafter=true ; rebootARG=system
@@ -121,7 +123,7 @@ RUN_READ_ARG(){
 					FimgC=$imgC
 				elif ! ( echo $imgC | grep "/" ) && [[ -f $zipfolder/$imgC ]] ; then
 					FimgC=$zipfolder/$imgC
-				else RUN_ABORT "32" "NOT FIND $imgC" ; fi
+				else RUN_ABORT "32" "NOT FIND $imgC" "You have entered the wrong file path." ; fi
 				case $imgP in
 				system|vendor|odm|product|system_ext) echo "${Fimg}FLASHTOFLASH$imgP$newslot" >> $home/custom_imgs_for_super.txt ;;
 												   *)	
@@ -158,7 +160,7 @@ RUN_READ_ARG(){
 					arguments.txt or comment it out with #" " "
 					flashrom=true
 				else 
-					RUN_ABORT "5" "Not find $romzip" 
+					RUN_ABORT "5" "Not find $romzip" "You have entered the wrong file path."
 				fi
 			fi 
 		fi
@@ -183,7 +185,7 @@ RUN_READ_ARG(){
 				if [[ -f $ADDzip ]] ; then 
 					listADDzip="$listADDzip\n$ADDzip"
 				else
-					RUN_ABORT "6" "Not find $ADDzip" 
+					RUN_ABORT "6" "Not find $ADDzip" "You have entered the wrong file path."
 				fi 
 			fi
 		fi
@@ -217,7 +219,7 @@ RUN_READ_ARG(){
 					arguments.txt or comment it out with #" " "
 					flashrec=true
 				else 
-					RUN_ABORT "77" "Not find $reczip" 
+					RUN_ABORT "77" "Not find $reczip" "You have entered the wrong file path."
 				fi
 			fi 
 		fi
@@ -225,7 +227,8 @@ RUN_READ_ARG(){
 	
 	if ( grep "RECOVERY REFLASH" "$arguments" | grep -i "yes" ) ; then 
 		if $flashrom ; then  
-			reflashrec=true 
+			reflashrec=true
+			RUN_ALL_MAUNT --umount
 			if ( sha256sum --status -c /ramdisk-files.sha256sum ) || ( sha256sum --status -c /ramdisk-files.checkmus ) ; then 
 				mkdir -pv /tmp/bin/twrp/
 				cpio -H newc -o < /ramdisk-files.txt > /tmp/bin/twrp/ramdisk.cpio
@@ -240,7 +243,7 @@ RUN_READ_ARG(){
 
 	}
 RUN_ARG_CHECK(){ 
-	if ! $flashrom && ! $flashrec && ! $flashdfe && ! $flashrw && ! $flashADDzip ; then 
+	if ! $flashrom && ! $flashrec && ! $flashdfe && ! $flashrw && ! $flashADDzip && ! $flash_custom_img ; then 
 		RUN_ABORT "9" "No arguments" "Copy .zip name in arguments.txt into .zip files or creat near .zip arguments.txt and rename fmp to ARGOUT-MFP.zip"
 	else
 		RUN_LOGO
@@ -642,6 +645,7 @@ RUN_SINGL_STRUCTURES(){
 	        mv $fwimgs $home/fw/
 	    done
 	fi
+	( grep "Unexpected end of archive" $home/7zip.txt ) && RUN_ABORT "26" "You $( basename $romzip ) damaged, you need to redownload it"
 	for img in $( find $home/imgs/*.img $home/fw/*.img ); do
 		if  [[ $( file $img | grep "sparse" ) ]] ; then
 			ui_print "-  simg2img $( basename $img )"
@@ -649,10 +653,23 @@ RUN_SINGL_STRUCTURES(){
 			rm -f $img ; mv $( dirname $img )/$( basename ${img%.img*} ).raw.img $img
 		fi
 	done
-	if ! [[ -f $home/imgs/vendor$newslot.img ]] && ! [[ -f $home/imgs/vendor$newslot.img ]] ; then 
+	if ! [[ -f $home/imgs/system$newslot.img ]] && ! [[ -f $home/imgs/vendor$newslot.img ]] ; then 
 		RUN_ABORT "27" "Something wrong: error 27"
 	fi
-	( grep "Unexpected end of archive" $home/7zip.txt ) && RUN_ABORT "26" "You $( basename $romzip ) damaged, you need to redownload it"
+	if ! $sm8250skip ; then
+		mkdir /tmp/mntvendortest
+		mount -r $home/imgs/vendor$newslot.img /tmp/mntvendortest
+		if ( mountpoint -q /tmp/mntvendortest ) && [[ -f /tmp/mntvendortest/etc/fstab.sm8250 ]] && ( getprop ro.product.device | grep "alioth" ) ; then
+			umount /tmp/mntvendortest
+			RUN_ABORT "90" " " "HentaiOS or HentaiOS tree is not supported" \
+			"If you are sure that this is not a HentaiOS tree and the system will work stably with then change the argument" \
+			"SM8250 SKIP CHECK - yes" " " "Otherwise, I just don't want to deal with these guys, let them live in their own little world." \
+			"I will not solve all the related problems of the HOS tree, it's a waste of time"
+		elif ! ( mountpoint -q /vendor ) ; then 
+			RUN_ABORT "91" " " "What a mistake, how did you even get here?" "In any case, it is not possible to mount the vendor partition"
+		fi
+		umount /tmp/mntvendortest
+	fi
 	}
 RUN_DUMP_PART(){
 	if [ $(/tmp/bin/toybox df $home | awk ' NR==2 { if ($4 > 15843545) print "1" }') == "1" ] ; then 
@@ -1082,21 +1099,9 @@ RUN_RECOVERY_FLASH_SM8250(){
 	}
 RUN_POST_PATCH(){
 	if ( $flashrec && ! $reflashrec ) || ( $flashrec && $reflashrec ) ; then 
-		if $sm8250 && ( getprop ro.product.device | grep "alioth" ) ; then 
-			ui_print "-  Patching flash recvoery for SM8250"
-			RUN_RECOVERY_FLASH_SM8250 
-		else 
-			ui_print "-  Patching flash recvoery"
 			RUN_RECOVERY_FLASH 
-		fi
 	elif ! $flashrec && $reflashrec ; then 
-		if $sm8250 && ( getprop ro.product.device | grep "alioth" ) ; then 
-			ui_print "-  Patching reflash recvoery for SM8250"
-			RUN_RECOVERY_FLASH_SM8250 
-		else 
-			ui_print "-  Patching reflash recvoery"
 			RUN_RECOVERY_REFLASH
-		fi
 	fi
 	$vendor_boot_patch && RUN_VENDORBOOT_PATCH
 	$boot_patch && RUN_BOOT_PATCH
@@ -1236,6 +1241,7 @@ n=1
 
 
 CimgFT=false
+
 case $zipname in
 	*ARGOUT*)
 		arguments=$zipfolder/arguments.txt
@@ -1248,6 +1254,18 @@ esac
 
 RUN_READ_ARG
 RUN_ARG_CHECK
+
+if ! $sm8250skip && ! $flashrom ; then
+	RUN_ALL_MAUNT --mount
+	if ( mountpoint -q /vendor ) && [[ -f /vendor/etc/fstab.sm8250 ]] && ( getprop ro.product.device | grep "alioth" ) ; then
+		RUN_ABORT "88" " " "HentaiOS or HentaiOS tree is not supported" \
+		"If you are sure that this is not a HentaiOS tree and the system will work stably with then change the argument" \
+		"SM8250 SKIP CHECK - yes" " " "Otherwise, I just don't want to deal with these guys, let them live in their own little world." \
+		"I will not solve all the related problems of the HOS tree, it's a waste of time"
+	elif ! ( mountpoint -q /vendor ) ; then 
+		RUN_ABORT "89" " " "What a mistake, how did you even get here?" "In any case, it is not possible to mount the vendor partition"
+	fi
+fi
 
 if ( echo $( basename $romzip ) | grep '(' ) || ( echo $( basename $romzip ) | grep ')' ) ; then
 	RUN_ABORT "16" "Remove ) or ( in rom name"
@@ -1301,7 +1319,6 @@ if ( [[ $permm == 41 ]] && ! $flashrom ) || ( $flashrw && ! $flashrom ) ; then
 			if [[ $perm == 41 ]] ; then 
 				RUN_ABORT "18" "Something wrong: 18"
 			fi ; fi ; fi
-[[ -f /vendor/etc/fstab.sm8250 ]] && sm8250=true || sm8250=false
 
 $flashdfe && RUN_DFE 
 $hide_no_encrypted && RUN_INIT_PATCH

@@ -14,21 +14,23 @@ example "yes" Or specify anything where there is no word yes "no" "nothing" "non
 
 		RECOVERY REFLASH - "no" | <--The function works exactly the same as the built-in function in TWRP
 
-Miui only fix ( not working , in progress )
+Miui only fix
 
 		FIX 120HZ & BRIGHTNESS - "no" <--Experemental
 		FORCE 120HZ FOR ALL APPS - "no" <--Experemental
 
 Maybe needed to run a system with DFE or MAKERW without using Magisk
 
-		DISABLE VERITY - "no"
-		DISABLE VERIFICATION - "no"
+		DISABLE VERITY - "no" 
+		DISABLE VERIFICATION - "no" 
 
 Apply only in case of problems with starting the system and problems with work system
 
-		HIDE NOT ENCRYPTED - "no"
-		POST VENDORBOOT PATCH - "no"
-		POST BOOT PATCH - "no"
+		HIDE NOT ENCRYPTED - "no" 
+		POST VENDORBOOT PATCH - "no" 
+		POST BOOT PATCH - "no" 
+
+		SM8250 SKIP CHECK - "NO" <--Only for alioth/in
 
 ##################################################################################################
 
