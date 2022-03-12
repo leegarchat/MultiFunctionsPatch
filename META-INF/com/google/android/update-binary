@@ -1085,18 +1085,6 @@ RUN_FW_FLASH(){
 	    fi
 	done
 	}
-RUN_RECOVERY_FLASH_SM8250(){
-	ui_print "-  Starting Flashing twrp vashy for SM8250"
-	dd if=/dev/block/by-name/boot$slot_ab of=/tmp/bin/boot.img
-	cd /tmp/bin ; magiskboot unpack boot.img
-	rm -f ramdisk.cpio
-	cp /tmp/twrp/twrp.cpio /tmp/bin/ramdisk.cpio
-	cd /tmp/bin/ 
-	cpio ramdisk.cpio sha1
-	magiskboot repack boot.img
-	dd if=/tmp/bin/new-boot.img of=/dev/block/by-name/boot$slot_ab
-	rm -rf "twrp" "ramdisk*" "*.img" "kernel*"
-	}
 RUN_POST_PATCH(){
 	if ( $flashrec && ! $reflashrec ) || ( $flashrec && $reflashrec ) ; then 
 			RUN_RECOVERY_FLASH 
