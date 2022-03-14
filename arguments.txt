@@ -10,11 +10,11 @@ example "yes" Or specify anything where there is no word yes "no" "nothing" "non
 
 		MAKERW - "no"
 		DFE - "no"
-		FIX PROXIMETER - "no" | <--Not working, in progress
+		FIX PROXIMETER - "no" | <-- Not working, in progress
 
-		RECOVERY REFLASH - "no" | <--The function works exactly the same as the built-in function in TWRP
+		RECOVERY REFLASH - "no" | <-- The function works exactly the same as the built-in function in TWRP
 
-Miui only fix
+Miui only fix !! maybe not working !!
 
 		FIX 120HZ & BRIGHTNESS - "no" <--Experemental
 		FORCE 120HZ FOR ALL APPS - "no" <--Experemental
@@ -30,7 +30,7 @@ Apply only in case of problems with starting the system and problems with work s
 		POST VENDORBOOT PATCH - "no" 
 		POST BOOT PATCH - "no" 
 
-		SM8250 SKIP CHECK - "NO" <--Only for alioth/in
+		HOS TREE SKIP CHECK - "NO" <-- Only for alioth/in
 
 ##################################################################################################
 

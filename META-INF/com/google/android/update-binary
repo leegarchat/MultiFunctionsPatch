@@ -11,7 +11,7 @@ ui_print(){ echo -e "ui_print $1\nui_print" >> "/proc/self/fd/$arg2" ; }
 calc(){ awk 'BEGIN{ print int('$1') }' ; }
 tabes="
 "
-MFPAPP="MFP-BETA-4.1.11-testV7"
+MFPAPP="MFP-4.1.11"
 RUN_WRITE_LOG(){
 	cp /system/etc/fstab $home/system_fstab.txt
 	getprop >> $home/getprop.txt
@@ -27,7 +27,7 @@ RUN_WRITE_LOG(){
 			continue
 		fi
 	done
-	[[ -f $home/arguments.txt ]] || cp $zipfolder/arguments.txt $home/
+	cp $arguments $home/
 	cp /tmp/*.log $home/
 	cp /tmp/*.txt $home/
 	for listHome in $( find $home/ ) ; do
@@ -101,7 +101,19 @@ RUN_READ_ARG(){
 
 	( grep "FIX 120HZ & BRIGHTNESS" "$arguments" | grep -i "yes" ) && FIX_FPS=true || FIX_FPS=false 
 	
-	( grep "SM8250 SKIP CHECK" "$arguments" | grep -i "yes" ) && sm8250skip=true || sm8250skip=false 
+	( grep "HOS TREE SKIP CHECK" "$arguments" | grep -i "yes" ) && sm8250skip=true || sm8250skip=false 
+
+
+	# if ( grep "BOOT LOGO" "$arguments" ) ; then
+	# 	line=$( grep "BOOT LOGO" "$arguments" )
+	# 	line=${line#*\"} ; line=${line%\"*}
+	# 	case $line in
+	# 		mi|MI|Mi) flashlogo=true ; bootlogo=/tmp/bin/mi ;;
+	# 		redmi|Redmi|REDMI) flashlogo=true ; bootlogo=/tmp/bin/redmi ;;
+	# 		poco|Poco|POCO) flashlogo=true ; bootlogo=/tmp/bin/poco ;;
+	# 		*) flashlogo=false ;;
+	# 	esac
+	# fi
 
 
 	if ( grep "REBOOT AFTER" "$arguments" | grep -i "system" ) ; then
@@ -280,6 +292,7 @@ RUN_LOGO(){
 	$flash_custom_img && ui_print "-  FLASH CUSTOM IMG: $( $flash_custom_img && echo "YES" || echo "NO" )"
 	$FIX_FPS && ui_print "-  FIX 120HZ: YES"
 	$FORCE_FPS && ui_print "-  FORCE 120HZ FOR ALL APPS: YES"
+	#$flashlogo && ui_print "-  FLASH LOGO: ${bootlogo#*/tmp/bin/}"
 
 
 	if ! $flashADDzip && ! $flashrom && ! $flashrec ; then 
@@ -331,45 +344,45 @@ RUN_MOUNT_SUPER(){
 	--mount-super)
     if ! $extsuper ; then
 		umount /system_root ; umount /vendor ; umount /product ; umount /system_ext ; umount /odm
-		block_system=$( grep "/system_root" /etc/fstab | awk '{ print $1 }' )
-		block_system_ext=$( grep "/system_ext" /etc/fstab | awk '{ print $1 }' )
-		block_vendor=$( grep "/vendor" /etc/fstab | awk '{ print $1 }' )
-		block_product=$( grep "/product" /etc/fstab | awk '{ print $1 }' )
-		block_odm=$( grep "/odm" /etc/fstab | awk '{ print $1 }' )
+		block_system=$( grep "/system_root " /etc/fstab | awk '{ print $1 }' )
+		block_system_ext=$( grep "/system_ext " /etc/fstab | awk '{ print $1 }' )
+		block_vendor=$( grep "/vendor " /etc/fstab | awk '{ print $1 }' )
+		block_product=$( grep "/product " /etc/fstab | awk '{ print $1 }' )
+		block_odm=$( grep "/odm " /etc/fstab | awk '{ print $1 }' )
 
 		system_back=false
-		if [[ $block_system == system ]] ; then 
-			line_block_system=$( grep "/system_root" /etc/fstab )
-			new_line_block_system=$( grep "/system_root" /etc/fstab | awk '{ print "/dev/block/dm-15 "$2" "$3" "$4" "$5" "$6 }')
-			sed -i 's|'$line_block_system'|'$new_line_block_system'|' /etc/fstab 
+		if [[ $block_system == "system" ]] ; then 
+			line_block_system=$( grep "/system_root " /etc/fstab )
+			new_line_block_system="$( grep "/system_root " /etc/fstab | awk '{ print "/dev/block/dm-15 "$2" "$3" "$4" "$5" "$6 }' )"
+			sed -i 's|'"$line_block_system"'|'"$new_line_block_system"'|' /etc/fstab 
 			block_system=/dev/block/dm-15 ; system_back=true
 		fi
 		system_ext_back=false
-		if [[ $block_system_ext == system_ext ]] ; then 
-			line_block_system_ext=$( grep "/system_ext" /etc/fstab )
-			new_line_block_system_ext=$( grep "/system_ext" /etc/fstab | awk '{ print "/dev/block/dm-16 "$2" "$3" "$4" "$5" "$6 }')
-			sed -i 's|'$line_block_system_ext'|'$new_line_block_system_ext'|' /etc/fstab 
+		if [[ $block_system_ext == "system_ext" ]] ; then 
+			line_block_system_ext=$( grep "/system_ext " /etc/fstab )
+			new_line_block_system_ext="$( grep "/system_ext " /etc/fstab | awk '{ print "/dev/block/dm-16 "$2" "$3" "$4" "$5" "$6 }' )"
+			sed -i 's|'"$line_block_system_ext"'|'"$new_line_block_system_ext"'|' /etc/fstab 
 			block_system_ext=/dev/block/dm-16 ; system_ext_back=true
 		fi
 		vendor_back=false
-		if [[ $block_vendor == vendor ]] ; then 
-			line_block_vendor=$( grep "/vendor" /etc/fstab )
-			new_line_block_vendor=$( grep "/vendor" /etc/fstab | awk '{ print "/dev/block/dm-17 "$2" "$3" "$4" "$5" "$6 }')
-			sed -i 's|'$line_block_vendor'|'$new_line_block_vendor'|' /etc/fstab 
+		if [[ $block_vendor == "vendor" ]] ; then 
+			line_block_vendor=$( grep "/vendor " /etc/fstab )
+			new_line_block_vendor=$( grep "/vendor " /etc/fstab | awk '{ print "/dev/block/dm-17 "$2" "$3" "$4" "$5" "$6 }' )
+			sed -i 's|'"$line_block_vendor"'|'"$new_line_block_vendor"'|' /etc/fstab 
 			block_vendor=/dev/block/dm-17 ; vendor_back=true
 		fi
 		product_back=false
-		if [[ $block_product == product ]] ; then 
-			line_block_product=$( grep "/product" /etc/fstab )
-			new_line_block_product=$( grep "/product" /etc/fstab | awk '{ print "/dev/block/dm-18 "$2" "$3" "$4" "$5" "$6 }')
-			sed -i 's|'$line_block_product'|'$new_line_block_product'|' /etc/fstab 
+		if [[ $block_product == "product" ]] ; then 
+			line_block_product=$( grep "/product " /etc/fstab )
+			new_line_block_product=$( grep "/product " /etc/fstab | awk '{ print "/dev/block/dm-18 "$2" "$3" "$4" "$5" "$6 }' )
+			sed -i 's|'"$line_block_product"'|'"$new_line_block_product"'|' /etc/fstab 
 			block_product=/dev/block/dm-18 ; product_back=true
 		fi
 		odm_back=false
-		if [[ $block_odm == odm ]] ; then 
-			line_block_odm=$( grep "/odm" /etc/fstab )
-			new_line_block_odm=$( grep "/odm" /etc/fstab | awk '{ print "/dev/block/dm-19 "$2" "$3" "$4" "$5" "$6 }')
-			sed -i 's|'$line_block_odm'|'$new_line_block_odm'|' /etc/fstab 
+		if [[ $block_odm == "odm" ]] ; then 
+			line_block_odm=$( grep "/odm " /etc/fstab )
+			new_line_block_odm=$( grep "/odm" /etc/fstab | awk '{ print "/dev/block/dm-19 "$2" "$3" "$4" "$5" "$6 }' )
+			sed -i 's|'"$line_block_odm"'|'"$new_line_block_odm"'|' /etc/fstab 
 			block_odm=/dev/block/dm-19 ; odm_back=true
 		fi
 
@@ -382,34 +395,39 @@ RUN_MOUNT_SUPER(){
 		done
 
 
-		loop_system=$( losetup -f ) #/dev/block/fake-system ; nam_device=$( calc $nam_device+10 )
-		#mknod $loop_system b 7 $nam_device
+		loop_system=$( losetup -f ) 
+		# loop_system="/dev/block/dm-$nam_device" ; nam_device=$( calc $nam_device+20 )
+		# mknod $loop_system b 7 $nam_device
 		losetup $loop_system $home/imgs/system$newslot.img
 		ln -s $loop_system $block_system
 
 
-		loop_vendor=$( losetup -f ) #/dev/block/fake-vendor ; nam_device=$( calc $nam_device+10 )
-		#mknod $loop_vendor b 7 $nam_device
+		loop_vendor=$( losetup -f ) 
+		#loop_vendor="/dev/block/dm-$nam_device" ; nam_device=$( calc $nam_device+20 )
+		# mknod $loop_vendor b 7 $nam_device
 		losetup $loop_vendor $home/imgs/vendor$newslot.img
 		ln -s $loop_vendor $block_vendor
 
 		if [[ -f $home/imgs/system_ext$newslot.img ]] ; then
-			loop_system_ext=$( losetup -f ) #/dev/block/fake-system-ext ; nam_device=$( calc $nam_device+10 )
-			#mknod $loop_system_ext b 7 $nam_device 
+			loop_system_ext=$( losetup -f ) 
+			# loop_system_ext="/dev/block/dm-$nam_device" ; nam_device=$( calc $nam_device+20 )
+			# mknod $loop_system_ext b 7 $nam_device 
 			losetup $loop_system_ext $home/imgs/system_ext$newslot.img
 			ln -s $loop_system_ext $block_system_ext
 		fi
 
 		if [[ -f $home/imgs/product$newslot.img ]] ; then
-			loop_product=$( losetup -f ) #/dev/block/fake-product ; nam_device=$( calc $nam_device+10 )
-			#mknod $loop_product b 7 $nam_device
+			loop_product=$( losetup -f ) 
+			# loop_product="/dev/block/dm-$nam_device" ; nam_device=$( calc $nam_device+20 )
+			# mknod $loop_product b 7 $nam_device
 			losetup $loop_product $home/imgs/product$newslot.img
 			ln -s $loop_product $block_product
 		fi
 
 		if [[ -f $home/imgs/odm$newslot.img ]] ; then
-			loop_odm=$( losetup -f ) #/dev/block/fake-odm ; nam_device=$( calc $nam_device+10 )
-			#mknod $loop_odm b 7 $nam_device
+			loop_odm=$( losetup -f ) 
+			# loop_odm="/dev/block/dm-$nam_device" ; nam_device=$( calc $nam_device+20 )
+			# mknod $loop_odm b 7 $nam_device
 			losetup $loop_odm $home/imgs/odm$newslot.img
 			ln -s $loop_odm $block_odm
 		fi
@@ -446,28 +464,28 @@ RUN_MOUNT_SUPER(){
 		umount /system_root ; umount /vendor ; umount /product ; umount /system_ext ; umount /odm
 		
 		if $system_ext_back ; then
-			sed -i 's|'$new_line_block_system_ext'|'$line_block_system_ext'|' /etc/fstab 
+			sed -i 's|'"$new_line_block_system_ext"'|'"$line_block_system_ext"'|' /etc/fstab 
 		fi
 		if $system_back ; then 
-			sed -i 's|'$new_line_block_system'|'$line_block_system'|' /etc/fstab 
+			sed -i 's|'"$new_line_block_system"'|'"$line_block_system"'|' /etc/fstab 
 		fi
 		if $vendor_back ; then
-			sed -i 's|'$new_line_block_vendor'|'$line_block_vendor'|' /etc/fstab 
+			sed -i 's|'"$new_line_block_vendor"'|'"$line_block_vendor"'|' /etc/fstab 
 		fi
 		if $product_back ; then
-			sed -i 's|'$new_line_block_product'|'$line_block_product'|' /etc/fstab 
+			sed -i 's|'"$new_line_block_product"'|'"$line_block_product"'|' /etc/fstab 
 		fi
 		if $odm_back ; then 
-			sed -i 's|'$new_line_block_odm'|'$line_block_odm'|' /etc/fstab 
+			sed -i 's|'"$new_line_block_odm"'|'"$line_block_odm"'|' /etc/fstab 
 		fi
 
 		for img in $block_system $block_system_ext $block_vendor $block_product $block_odm ; do 
 			rm $img
 			mv ${img}.bak $img
 		done
-		# for img in $loop_system $loop_system_ext $loop_vendor $loop_product $loop_odm ; do 
-		# 	rm $img
-		# done 
+		for img in $loop_system $loop_system_ext $loop_vendor $loop_product $loop_odm ; do 
+			rm $img
+		done 
 	fi
 	extsuper=false
     fi
@@ -656,6 +674,18 @@ RUN_SINGL_STRUCTURES(){
 	if ! [[ -f $home/imgs/system$newslot.img ]] && ! [[ -f $home/imgs/vendor$newslot.img ]] ; then 
 		RUN_ABORT "27" "Something wrong: error 27"
 	fi
+	mkdir /tmp/mntsystemtest
+	mount -r $home/imgs/system$newslot.img /tmp/mntsystemtest
+	if ( cat /tmp/mntsystemtest/system/build.prop | grep aospa ) && ( getprop ro.product.device | grep "alioth" ) ; then
+		if ! [[ -f /tmp/passaospa.txt ]] ; then
+			echo "pass" >> /tmp/passaospa.txt
+			RUN_ABORT "93" "AOSPA Detected!!" "According to the latest news, it has a new type of data reading" \
+			"For it to work correctly, you need to format the data, even if you have used or are using DFE" \
+			"If you are sure about this, then you just need to flash MFP.zip again, and there will be no error" \
+			"If you are sure about this, then you just need to flash MFP.zip again, and there will be no error"
+		fi
+	fi
+	umount /tmp/mntsystemtest
 	if ! $sm8250skip ; then
 		mkdir /tmp/mntvendortest
 		mount -r $home/imgs/vendor$newslot.img /tmp/mntvendortest
@@ -665,7 +695,7 @@ RUN_SINGL_STRUCTURES(){
 			"If you are sure that this is not a HentaiOS tree and the system will work stably with then change the argument" \
 			"SM8250 SKIP CHECK - yes" " " "Otherwise, I just don't want to deal with these guys, let them live in their own little world." \
 			"I will not solve all the related problems of the HOS tree, it's a waste of time"
-		elif ! ( mountpoint -q /vendor ) ; then 
+		elif ! ( mountpoint -q /tmp/mntvendortest ) ; then 
 			RUN_ABORT "91" " " "What a mistake, how did you even get here?" "In any case, it is not possible to mount the vendor partition"
 		fi
 		umount /tmp/mntvendortest
@@ -754,6 +784,7 @@ RUN_DFE(){
 	path_to=/vendor
 	#ui_print "-  Starting patching fstabes"
 	for fstabes in $( find $path_to/etc/*fstab* ) ; do
+		size_c2=false
 		if ( grep "/userdata" $fstabes ) && ( grep "/metadata" $fstabes ) ; then 
 			#ui_print "-  $( basename $fstabes )"
 			while (grep "fileencryption=" $fstabes) || (grep "forcefdeorfbe=" $fstabes) || (grep "encryptable=" $fstabes) \
@@ -763,28 +794,22 @@ RUN_DFE(){
 				for ffff in "fileencryption=" "forcefdeorfbe=" "encryptable=" "forceencrypt=" "metadata_encryption=" "keydirectory=" "avb=" "avb_keys="
                 do
                     grep "$ffff" $fstabes && rem="${k#*"$ffff"}" && rem="${rem%%,*}" && rem="${ffff}${rem%%"$tabes"*}" || continue
-                    grep ",$rem" $fstabes && sed -i 's|,'$rem'||' $fstabes && size_c=true #&& ui_print "-  Flag ${rem#*"$ffff"}" 
-                    grep "$rem" $fstabes && sed -i 's|'$rem'||' $fstabes && size_c=true #&& ui_print "-  Flag ${rem#*"$ffff"}"
+                    grep ",$rem" $fstabes && sed -i 's|,'$rem'||' $fstabes && size_c=true && size_c2=true #&& ui_print "-  Flag ${rem#*"$ffff"}" 
+                    grep "$rem" $fstabes && sed -i 's|'$rem'||' $fstabes && size_c=true && size_c2=true #&& ui_print "-  Flag ${rem#*"$ffff"}"
                 done 
 			done
-			grep "avb" $fstabes && sed -i 's|,avb||g' $fstabes && size_c=true #&& ui_print "-  Remove avb"
-            grep "quota" $fstabes && sed -i 's|,quota||g' $fstabes && size_c=true #&& ui_print "-  Remove quota"
-            grep "inlinecrypt" $fstabes && sed -i 's|,inlinecrypt||g' $fstabes #&& size_c=true && ui_print "-  Remove inlinecrypt"
-            grep "wrappedkey" $fstabes && sed -i 's|,wrappedkey||g' $fstabes #&& size_c=true && ui_print "-  Remove weappedkey"
-			if [[ $( stat -c%s $fstabes ) -ge 30 ]] && $size_c ; then 
+			grep "avb" $fstabes && sed -i 's|,avb||g' $fstabes && size_c=true && size_c2=true #&& ui_print "-  Remove avb"
+            grep "quota" $fstabes && sed -i 's|,quota||g' $fstabes && size_c=true && size_c2=true #&& ui_print "-  Remove quota"
+            grep "inlinecrypt" $fstabes && sed -i 's|,inlinecrypt||g' $fstabes && size_c=true && size_c2=true #&& ui_print "-  Remove inlinecrypt"
+            grep "wrappedkey" $fstabes && sed -i 's|,wrappedkey||g' $fstabes && size_c=true && size_c2=true #&& ui_print "-  Remove weappedkey"
+			if [[ $( stat -c%s $fstabes ) -ge 30 ]] && $size_c2 ; then 
 				ui_print "-  $(basename $fstabes): Has been succesfully patched"
 				fstab_here=true
-				if [ $( basename $fstabes) == "fstab.sm8250" ] ; then 
-                    sm8250=true
-                fi
-            elif [[ $( stat -c%s $fstabes ) -ge 30 ]] && ! $size_c ; then 
+            elif [[ $( stat -c%s $fstabes ) -ge 30 ]] && ! $size_c2 ; then 
             	ui_print "-  $( basename $fstabes ): Doesn't need patching"
             	fstab_here=true
-            	if [ $( basename $fstabes) == "fstab.sm8250" ] ; then 
-                    sm8250=true
-                fi
 			else
-				RUN_ABORT "15" "You need reflash rom" \
+				RUN_ABORT "15" \
 				"Something wrong: error 15"
 			fi
 		fi
@@ -1019,16 +1044,25 @@ RUN_RECOVERY_FLASH(){
 		}	
 RUN_INIT_PATCH(){
 	finit=1
-    while ! [[ -z $(head -n$finit /system_root/system/build.prop | tail -n1) ]] ; do
-        finit=$( expr $finit + 1 )
-        r=$(head -n$finit /system_root/system/build.prop | tail -n1)
-        [[ -z $r ]] && break
-    done 
+	ui_print "-  Starting hide not encrypted"
+    # while ! [[ -z $(head -n$finit /system_root/system/build.prop | tail -n1) ]] ; do
+    #     finit=$( expr $finit + 1 )
+    #     r=$(head -n$finit /system_root/system/build.prop | tail -n1)
+    #     if ! [[ -z $r ]] && [[ $finit -gt 1300 ]] ; then
+    #     	( grep "ro.crypto.state" /system_root/system/build.prop && \
+		  #   sed -i '/ro.crypto.state/d' /system_root/system/build.prop && \
+		  #   echo "ro.crypto.state=true" >> /system_root/system/build.prop ) || \
+		  #   echo "ro.crypto.state=true" >> /system_root/system/build.prop
+    #     	break
+    #   	elif [[ -z $r ]] ; then
+		( grep "ro.crypto.state" /system_root/system/build.prop && \
+	    sed -i '/ro.crypto.state/d' /system_root/system/build.prop && \
+	    sed -i "${finit}i \ ro.crypto.state=true" /system_root/system/build.prop ) || \
+	    sed -i "${finit}i \ ro.crypto.state=true" /system_root/system/build.prop
+    #   		break
+    #   	fi
 
-    ( grep "ro.crypto.state" /system_root/system/build.prop && \
-    sed -i '/ro.crypto.state/d' /system_root/system/build.prop && \
-    sed -i "${finit}i \ro.crypto.state=true" /system_root/system/build.prop ) || \
-    sed -i "${finit}i \ro.crypto.state=true" /system_root/system/build.prop
+    # done 
 
 	}
 RUN_BOOT_PATCH(){
@@ -1067,10 +1101,6 @@ RUN_VENDORBOOT_PATCH(){
 
 	}
 RUN_FW_FLASH(){
-	ui_print "-  Starting Flashing FW"
-
-
-
 	for fw in $( find $home/fw/*img $home/boot/*img ) ; do
 	    fwname=$( basename ${fw%.img*} )
 	    ui_print "-  Flashing inbuild $fwname"
@@ -1084,6 +1114,22 @@ RUN_FW_FLASH(){
 	    	dd if=$fw of=/dev/block/by-name/$fwname$newslot
 	    fi
 	done
+	# if $flashlogo ; then
+	# 	for fw in $( find $bootlogo/*img ) ; do
+	# 	    fwname=$( basename ${fw%.img*} )
+	# 	    ui_print "-  Flashing logo file $fwname"
+	# 	    if ( file $fw | grep "sparse" ) ; then 
+	# 	    	simg2img $fw $fw.row
+	# 	    	rm -f $fw ; mv $fw.row $fw
+	# 	    fi
+	# 	    if ! ( file /dev/block/by-name/$fwname | grep "cannot open" ) ; then
+	# 	    	dd if=$fw of=/dev/block/by-name/$fwname
+	# 	    elif ! ( file /dev/block/by-name/$fwname$newslot | grep "cannot open" ) ; then
+	# 	    	dd if=$fw of=/dev/block/by-name/$fwname$newslot
+	# 	    fi
+	# 	done
+	# fi
+
 	}
 RUN_POST_PATCH(){
 	if ( $flashrec && ! $reflashrec ) || ( $flashrec && $reflashrec ) ; then 
@@ -1091,6 +1137,7 @@ RUN_POST_PATCH(){
 	elif ! $flashrec && $reflashrec ; then 
 			RUN_RECOVERY_REFLASH
 	fi
+
 	$vendor_boot_patch && RUN_VENDORBOOT_PATCH
 	$boot_patch && RUN_BOOT_PATCH
 	}
@@ -1219,7 +1266,7 @@ fi
 rm -rf $home
 
 
-sm8250=false ; extsuper=false ; nam_device=190 ; extfw=false
+sm8250=false ; extsuper=false ; nam_device=200 ; extfw=false
 mkdir -pv $home ; mkdir -pv $home/payload
 mkdir -pv $home/imgs ; mkdir -pv $home/super ; mkdir -pv $home/nonsuper 
 mkdir -pv $home/newdatsuper ; mkdir -pv $home/fw ; mkdir -pv $home/newdat
